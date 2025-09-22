@@ -1,6 +1,5 @@
 # import os
 import logging
-import torch
 from fastapi import FastAPI, Request
 from transformers import pipeline
 
