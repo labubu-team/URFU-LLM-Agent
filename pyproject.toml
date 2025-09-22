@@ -25,6 +25,7 @@ llm = [
     "transformers>=4.56.1",
     "uvicorn>=0.35.0",
     "python-dotenv>=1.1.1",
+    "torch>=2.8.0",
 ]
 rag = [
     "fastapi>=0.116.2",
