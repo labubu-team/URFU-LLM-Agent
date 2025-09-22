@@ -39,7 +39,7 @@ jobs:
       - name: YC Docker Auth
         run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Build & push Telegram Bot image YC_REPO
         run: |
           YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-tgbot
           docker build -f ./labubu-tgbot/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
@@ -71,7 +71,7 @@ jobs:
       - name: YC Docker Auth
         run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Build & push rag image YC_REPO
         run: |
           YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
           docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
@@ -103,7 +103,7 @@ jobs:
       - name: YC Docker Auth
         run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Build & push moderation_nlp YC_REPO
         run: |
           YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
           docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
@@ -135,7 +135,7 @@ jobs:
       - name: YC Docker Auth
         run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Build & push moderation_regex YC_REPO
         run: |
           YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
           docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .

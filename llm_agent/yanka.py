@@ -1,13 +1,23 @@
 # import os
 import logging
+import torch
 from fastapi import FastAPI, Request
 from transformers import pipeline
 
 # 1. Загрузка модели из huggingface
 # Убедитесь, что у вас достаточно памяти (RAM/VRAM)
 try:
-    pipe = pipeline("text-generation", model="secretmoon/YankaGPT-8B-v0.1")
+    pipe = pipeline(
+        "text-generation",
+        model="secretmoon/YankaGPT-8B-v0.1",
+        device=0,  # <--- КРИТИЧЕСКИ ВАЖНО: Указывает на первую GPU
+        torch_dtype=torch.bfloat16
+    )
     logging.info("Model loaded successfully")
+    # Прогрев модели
+    logging.info("Warming up the model...")
+    _ = pipe("Привет!", max_length=2)
+    logging.info("Model is warmed up and ready.")
 except Exception as e:
     logging.error(f"Error loading model: {e}")
     raise
