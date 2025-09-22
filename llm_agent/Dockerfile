@@ -1,5 +1,5 @@
-# Использование официального образа Python
-FROM python:3.13-slim
+# Использование triton https://github.com/triton-inference-server
+FROM nvcr.io/nvidia/tritonserver:22.01-py3
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

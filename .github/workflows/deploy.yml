@@ -37,7 +37,13 @@ jobs:
           docker push $REPO:${{ github.run_number }}
     
       - name: YC Docker Auth
-        run: yc container registry configure-docker
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          yc config profile create test
+          yc config set folder-id ${{ secrets.YC_FOLDER }}
+          yc config set organization-id ${{ secrets.YC_ORG_ID }}
+          yc config list
+          yc container registry configure-docker
 
       - name: Build & push Telegram Bot image YC_REPO
         run: |
@@ -68,15 +74,15 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
 
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
 
-      - name: Build & push rag image YC_REPO
-        run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
-          docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-          docker push $YC_REPO:latest
-          docker push $YC_REPO:${{ github.run_number }}
+      # - name: Build & push rag image YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
+      #     docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}
 
   build-and-push_moderation_nlp:
     runs-on: ubuntu-latest
@@ -100,15 +106,15 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
       
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
 
-      - name: Build & push moderation_nlp YC_REPO
-        run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
-          docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-          docker push $YC_REPO:latest
-          docker push $YC_REPO:${{ github.run_number }}
+      # - name: Build & push moderation_nlp YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
+      #     docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}
 
   build-and-push_moderation_regex:
     runs-on: ubuntu-latest
@@ -132,15 +138,15 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
       
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
 
-      - name: Build & push moderation_regex YC_REPO
-        run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
-          docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-          docker push $YC_REPO:latest
-          docker push $YC_REPO:${{ github.run_number }}
+      # - name: Build & push moderation_regex YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
+      #     docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}
       
 
   build-and-push_llm-agent:
@@ -165,12 +171,12 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
 
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
-        run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/llm_agent
-          docker build -f ./llm_agent/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-          docker push $YC_REPO:latest
-          docker push $YC_REPO:${{ github.run_number }}
+      # - name: Build & push LLM Agent YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/llm_agent
+      #     docker build -f ./llm_agent/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}

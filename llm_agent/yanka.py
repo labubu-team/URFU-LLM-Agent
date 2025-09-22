@@ -74,9 +74,9 @@ try:
         "text-generation",
         model=MODEL_NAME,
         tokenizer=tokenizer,
-        device=torch.device("cuda"),
         dtype=torch.bfloat16
     )
+    pipe = pipe.to("cuda")
 
     logging.info("Warming up the model...")
     # Прогрев модели))))
