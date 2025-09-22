@@ -41,6 +41,18 @@ services:
     pull_policy: always
     networks:
       - labubu_net
+  
+  output-safety:
+    build: 
+      context: .
+      dockerfile: output-safety/Dockerfile
+    ports:
+      - "8003:8003"
+    networks:
+      - labubu_net
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
 
 networks:
   labubu_net:
