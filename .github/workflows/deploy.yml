@@ -39,11 +39,11 @@ jobs:
       - name: YC Docker Auth
         run: |
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          source "/home/runner/.bashrc"
-          yc config profile create test
-          yc config set folder-id ${{ secrets.YC_FOLDER }}
-          yc config set organization-id ${{ secrets.YC_ORG_ID }}
-          yc config list
+          source "/home/runner/.bashrc" && \
+          yc config profile create test && \
+          yc config set folder-id ${{ secrets.YC_FOLDER }} && \
+          yc config set organization-id ${{ secrets.YC_ORG_ID }} && \
+          yc config list && \
           yc container registry configure-docker
 
       - name: Build & push Telegram Bot image YC_REPO
