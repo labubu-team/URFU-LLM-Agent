@@ -35,6 +35,16 @@ jobs:
           docker build -f ./telegram_bot/Dockerfile -t $REPO:latest -t $REPO:${{ github.run_number }} .
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
+    
+      - name: YC Docker Auth
+        run: yc container registry configure-docker
+
+      - name: Build & push LLM Agent YC_REPO
+        run: |
+          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-tgbot
+          docker build -f ./labubu-tgbot/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          docker push $YC_REPO:latest
+          docker push $YC_REPO:${{ github.run_number }}
 
   build-and-push_rag:
     runs-on: ubuntu-latest
@@ -58,6 +68,16 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
 
+      - name: YC Docker Auth
+        run: yc container registry configure-docker
+
+      - name: Build & push LLM Agent YC_REPO
+        run: |
+          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
+          docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          docker push $YC_REPO:latest
+          docker push $YC_REPO:${{ github.run_number }}
+
   build-and-push_moderation_nlp:
     runs-on: ubuntu-latest
     steps:
@@ -79,6 +99,16 @@ jobs:
           docker build -f ./moderation_nlp/Dockerfile -t $REPO:latest -t $REPO:${{ github.run_number }} .
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
+      
+      - name: YC Docker Auth
+        run: yc container registry configure-docker
+
+      - name: Build & push LLM Agent YC_REPO
+        run: |
+          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
+          docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          docker push $YC_REPO:latest
+          docker push $YC_REPO:${{ github.run_number }}
 
   build-and-push_moderation_regex:
     runs-on: ubuntu-latest
@@ -102,6 +132,16 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
       
+      - name: YC Docker Auth
+        run: yc container registry configure-docker
+
+      - name: Build & push LLM Agent YC_REPO
+        run: |
+          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
+          docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          docker push $YC_REPO:latest
+          docker push $YC_REPO:${{ github.run_number }}
+      
 
   build-and-push_llm-agent:
     runs-on: ubuntu-latest
@@ -118,9 +158,19 @@ jobs:
         id: repo
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
 
-      - name: Build & push LLM Agent
+      - name: Build & push LLM Agent GITHUB
         run: |
           REPO=ghcr.io/${{ steps.repo.outputs.owner_lc }}/llm_agent
           docker build -f ./llm_agent/Dockerfile -t $REPO:latest -t $REPO:${{ github.run_number }} .
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
+
+      - name: YC Docker Auth
+        run: yc container registry configure-docker
+
+      - name: Build & push LLM Agent YC_REPO
+        run: |
+          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/llm_agent
+          docker build -f ./llm_agent/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          docker push $YC_REPO:latest
+          docker push $YC_REPO:${{ github.run_number }}
