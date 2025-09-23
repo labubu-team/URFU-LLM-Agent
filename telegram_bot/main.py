@@ -1,50 +1,12 @@
-"""⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⣤⣤⣼⣷⣤⣤⣤⣤⣤⣤⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠀⠀⠀⠀⠀⠀⡀⠀⠀⢸⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⣇⣿⣛⣹⣿⣬⣿⣿⣽⣯⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⢶⠖⢳⠀⠀⠀⠀⠀⠀⠡⠀⠀⠘⣇⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠉⢽⣿⡏⠀⠀⠀⠀⠀⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣛⣤⣿⣦⣰⠀⠀⠀⠀⠀⠀⣀⠀⠐⠒⠹⠃⠀⠀⠀⠀⣼⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⢸⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣨⣿⣿⠿⠻⣿⡙⠆⠀⠀⣠⣾⡟⢹⣶⣦⡄⠀⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⢺⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣿⣿⠋⠀⢠⣿⣧⡞⠀⣴⣿⣿⣿⡟⠉⢿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠸⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣿⡟⠀⣤⠉⣿⣿⠀⢠⣿⣿⣿⡟⠀⠀⢸⣿⣟⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣺⣿⣿⠀⣰⣿⠀⣿⣿⠀⣾⣿⣿⡟⠀⣠⡄⢸⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⠃⠀⣿⡏⢠⣿⣿⣤⣿⣿⣿⠁⢸⣿⡇⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣀⣼⣿⣷⣿⡿⣿⠿⠿⣿⣧⣠⣿⣿⢁⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⡿⣽⣿⣷⣶⡋⠂⠀⣊⠀⢉⠽⠻⢿⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣞⣹⡿⣿⣿⣿⣿⣻⣿⣷⣧⣰⡀⠉⠀⢀⡠⠎⠩⣭⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠄⣰⠟⣻⣿⡿⢿⣿⣿⣿⣿⣷⣿⣿⣿⡇⠀⡙⣻⣦⠀⢸⣖⠒⠺⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⠃⢸⣷⡿⠋⣹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣾⣿⡿⣿⣷⣏⠉⢛⣀⣼⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣶⡟⢉⣴⣿⣿⣿⣿⣿⣿⣿⡿⠛⠛⠋⠉⠛⠻⢿⣿⣿⣽⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡿⢟⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠙⠻⣿⣿⣽⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡼⣷⣿⡟⣿⣿⣿⣿⣿⡟⠀⠀⠀⣀⠖⠰⢦⠤⠤⠀⠀⠀⠀⠀⠀⠀⢀⡸⣿⣿⣻⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢱⣿⣿⣿⣿⣿⣿⣿⣟⠀⠀⠀⢠⠏⠀⣾⡿⣷⡀⠀⠀⠀⠀⡾⠋⣩⡍⠁⢸⣿⣿⣻⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡿⣿⣿⣿⣿⣿⣿⣿⣿⠰⡀⠀⢸⠀⢸⣿⣿⣿⠃⠀⠀⠀⢸⠃⢰⣿⣿⠀⢸⣿⣿⣿⣿⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⣿⣿⣿⣿⣿⣿⡇⠻⣄⠈⢧⠈⠿⠿⠋⠀⢠⣶⣤⣬⠀⢸⣿⡏⠀⢸⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⣦⡈⠳⣄⡀⠀⠀⠀⠀⠀⠙⠉⠀⠁⠘⠛⢁⣰⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⣉⡳⠶⠤⣤⣀⣀⣀⣀⣀⣤⣶⣿⣿⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⢤⡀⠀⠀⠀⠀⠉⠻⣿⣿⣿⣿⣍⣿⣿⣿⣿⣿⣿⣶⣶⣶⣿⣿⣿⣷⣾⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢳⣶⡛⠆⠀⠀⠀⠀⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣤⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠏⠁⠀⠀⠀⠀⢰⣤⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢧⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⣼⠆⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⣿⣿⣿⣿⣿⣿⣿⣿⡗⢤⣤⠾⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣽⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠛⠻⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⢀⡤⠶⠋⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣶⡋⣤⠀⠀⢀⣀⢸⣶
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠤⠀⠀⠀⠀⠀⠀⢀⣴⣟⠁⢸⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⢚⣿⠞⠛⠁⠀⠀⣈⣹⣿⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠐⣖⠒⠶⢤⣤⣤⣤⡾⠟⠛⠙⠳⢼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⢀⣴⣟⠥⠤⠚⢿⣤⣾⣿⣿⣿⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣀⡀⠀⠀⠰⢆⡀⠀⠀⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⣀⣴⣿⣿⣿⡋⢉⣠⣾⣿⣿⣿⣿⣿⣿
-⠀⠀⠀⠀⣀⠀⠶⠆⠀⠀⠀⠀⢰⠀⠀⠀⢀⣀⡉⢓⣦⣠⣴⠾⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⡀⠊⡉⣅⣀⣿⣿⣿⣿⣿⣿⣻⣿⡿⣿⣿⣿
-⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢶⣶⣤⣥⣼⣿⣿⡏⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⠄⠀⠀⣼⢟⣽⠟⣿⣿⣿⣯⣿⢟⡟⠛⠛⠎⠙⠿
-⠀⠀⢀⡀⠱⡀⠀⠀⠀⠀⠀⢤⣄⡀⢰⣯⣿⣿⣿⣿⡿⠛⠃⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣭⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣄⣀⠀⠘⠘⠛⠚⠛⠛⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⢸⣷⣄⠱⡄⠀⠀⠀⠐⠚⠛⠣⣼⠻⠛⠟⠋⠀⠀⠀⠀⠘⠛⠋⠋⠙⣿⠻⣿⣿⣿⣿⣿⣿⣿⣿⡿⢿⣿⣯⣥⣤⣬⣽⡿⢻⣿⣿⡂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⣈⡙⠿⢿⣽⣷⣄⣀⣴⣢⠤⠖⠠⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠏⠛⠻⠿⡿⣿⡟⢺⣿⣿⡿⠛⠛⢃⣘⠛⠛⠟⠛⠛⠻⢿⢿⠏⠙⠿⣷⢾⠂⠀⠀⠂⠀⠤⠀⠀⠀⠀⠀⠀
-⠟⢿⣶⣤⡈⠉⣉⣉⢉⠉⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠆⠀⠀⠀⠁⠈⠁⢨⠭⣉⠀⠀⠀⢈⠁⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"""
-
 import json
 import logging
 import os
 import socket
+import sys
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict
 
+from aiohttp import web
 import dotenv
 import requests
 from telegram import Update
@@ -65,8 +27,6 @@ WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/tg")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "change-me")
 
 PORT = int(os.getenv("PORT", "8080"))
-HEALTH_PORT = int(os.getenv("HEALTH_PORT", "8081"))
-
 LLM_AGENT_URL = os.getenv("LLM_AGENT_URL", "").rstrip("/")
 LLM_AGENT_HOST = os.getenv("LLM_AGENT_HOST", "llm-agent")
 LLM_AGENT_PORT = int(os.getenv("LLM_AGENT_PORT", "7999"))
@@ -121,22 +81,18 @@ class YCJsonFormatter(logging.Formatter):
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
 
+def _setup_logging():
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+    h = logging.StreamHandler()
+    h.setFormatter(YCJsonFormatter())
+    root.addHandler(h)
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
+_setup_logging()
 log = logging.getLogger("app")
-
-
-def jinfo(m, **f):
-    return log.info(m, extra=f)
-
-
-def jerror(m, **f):
-    return log.error(m, extra=f)
-
+jinfo  = lambda m, **f: log.info(m,  extra=f)
+jerror = lambda m, **f: log.error(m, extra=f)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
@@ -193,7 +149,6 @@ class YandexGPTBot:
 
 yandex_bot = YandexGPTBot()
 
-
 # ── Telegram handlers ────────────────────────────────────────────────────────
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = update.effective_user
@@ -244,7 +199,6 @@ async def msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     jerror("Unhandled error", event="unhandled_error", error=str(context.error))
 
-
 # ── Health server (отдельный порт) ───────────────────────────────────────────
 class _HealthHandler(BaseHTTPRequestHandler):
     def _send(self, status: int, payload: Dict[str, Any]):
@@ -260,59 +214,40 @@ class _HealthHandler(BaseHTTPRequestHandler):
         status = 200
         try:
             if self.path.startswith("/healthz"):
-                self._send(
-                    200,
-                    {
-                        "status": "alive",
-                        "uptime_seconds": round(time.time() - STARTED_AT, 3),
-                    },
-                )
+                self._send(200, {
+                    "status": "alive",
+                    "uptime_seconds": round(time.time() - STARTED_AT, 3),
+                })
                 status = 200
                 return
             if self.path.startswith("/readyz"):
                 deps = {
                     "telegram_token": bool(TELEGRAM_TOKEN),
                     "llm_url": _llm_url(),
-                    "llm_agent_tcp": (
-                        True
-                        if LLM_AGENT_URL
-                        else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT)
-                    ),
+                    "llm_agent_tcp": True if LLM_AGENT_URL else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT),
                 }
                 ok = bool(TELEGRAM_TOKEN) and deps["llm_agent_tcp"]
-                self._send(
-                    200 if ok else 503,
-                    {
-                        "status": "ok" if ok else "degraded",
-                        "uptime_seconds": round(time.time() - STARTED_AT, 3),
-                        "dependencies": deps,
-                    },
-                )
+                self._send(200 if ok else 503, {
+                    "status": "ok" if ok else "degraded",
+                    "uptime_seconds": round(time.time() - STARTED_AT, 3),
+                    "dependencies": deps,
+                })
                 status = 200 if ok else 503
                 return
             self._send(404, {"status": "not_found"})
             status = 404
         finally:
             dt = round((time.perf_counter() - t0) * 1000, 1)
-            jinfo(
-                "HTTP access",
-                event="http_access",
-                method="GET",
-                path=self.path,
-                status=status,
-                duration_ms=dt,
-                remote=self.client_address[0],
-            )
-
+            jinfo("HTTP access", event="http_access",
+                  method="GET", path=self.path, status=status,
+                  duration_ms=dt, remote=self.client_address[0])
 
 def start_health_server(host: str = "0.0.0.0", port: int = HEALTH_PORT):
     server = HTTPServer((host, port), _HealthHandler)
     import threading
-
     threading.Thread(target=server.serve_forever, daemon=True).start()
     jinfo("Health server started", event="health_start", host=host, port=port)
     return server
-
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
@@ -321,7 +256,11 @@ def main():
     if not PUBLIC_URL:
         raise RuntimeError("PUBLIC_URL is not set")
 
-    start_health_server()
+
+async def amain():
+    global application
+    if not TELEGRAM_TOKEN or not PUBLIC_URL:
+        raise RuntimeError("TELEGRAM_TOKEN and PUBLIC_URL must be set")
 
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     application.add_handler(CommandHandler("start", start_cmd))
@@ -330,25 +269,27 @@ def main():
     )
     application.add_error_handler(error_handler)
 
+    # Роут вебхука (после появления application)
+    aio.router.add_post(WEBHOOK_PATH, tg_webhook)
+
     webhook_url = f"{PUBLIC_URL.rstrip('/')}{WEBHOOK_PATH if WEBHOOK_PATH.startswith('/') else '/' + WEBHOOK_PATH}"
-    jinfo(
-        "Starting webhook",
-        event="startup",
-        public_url=PUBLIC_URL,
-        webhook_path=WEBHOOK_PATH,
-        webhook_url=webhook_url,
-        port=PORT,
+    jinfo("Starting webhook", event="startup",
+          public_url=PUBLIC_URL, webhook_path=WEBHOOK_PATH, webhook_url=webhook_url, port=PORT)
+
+    await application.initialize()
+    await application.start()
+    await application.bot.set_webhook(
+        url=webhook_url, secret_token=WEBHOOK_SECRET, drop_pending_updates=True
     )
 
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_path=WEBHOOK_PATH,
-        webhook_url=webhook_url,
-        secret_token=WEBHOOK_SECRET,
-        drop_pending_updates=True,
-    )
+    runner = web.AppRunner(aio)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+
+    jinfo("Started", event="startup", port=PORT, webhook_url=webhook_url)
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(amain())

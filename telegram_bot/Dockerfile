@@ -6,7 +6,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/root/.local/bin:${PATH}" \
     PORT=8080 \
-    HEALTH_PORT=8080 \
     LOG_LEVEL=INFO \
     LLM_AGENT_HOST=llm-agent \
     LLM_AGENT_PORT=7999
@@ -26,6 +25,6 @@ COPY ./telegram_bot/ .
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${HEALTH_PORT}/readyz" || exit 1
+  CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" || exit 1
 
 CMD ["uv", "run", "main.py"]

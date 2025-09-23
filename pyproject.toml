@@ -84,3 +84,6 @@ ignore = ["ANN401", "DJ001", "DJ007", "FBT001", "FBT002", "S311"]
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
