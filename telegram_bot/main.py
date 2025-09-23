@@ -1,7 +1,11 @@
 import logging
 import os
+import socket
+import time
+
 import dotenv
 import requests
+from aiohttp import web
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -11,106 +15,80 @@ from telegram.ext import (
     filters,
 )
 
-import json
-import time
-import socket
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
-
 dotenv.load_dotenv()
 
-SERVICE_ACCOUNT_ID = os.getenv("SERVICE_ACCOUNT_ID")
-PUBLIC_KEY = os.getenv("PUBLIC_KEY")
-PRIVATE_KEY = os.getenv("PRIVATE_KEY")
-KEY_ID = os.getenv("KEY_ID")
-FOLDER_ID = os.getenv("FOLDER_ID")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+PUBLIC_URL = os.getenv("PUBLIC_URL", "")
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/tg")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "change-me")
+PORT = int(os.getenv("PORT", "8080"))
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-
-# --- health ---
-HEALTH_PORT = int(os.getenv("HEALTH_PORT", "8080"))
-STARTED_AT = time.time()
 LLM_AGENT_HOST = os.getenv("LLM_AGENT_HOST", "llm-agent")
 LLM_AGENT_PORT = int(os.getenv("LLM_AGENT_PORT", "7999"))
-# --- /health ---
+STARTED_AT = time.time()
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    force=True,
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("tg-bot")
 
 
 class YandexGPTBot:
-    def __init__(self):
-        self.iam_token = None
-        self.token_expires = 0
-
-    def ask_gpt(self, question):
-        """Запрос к Yandex GPT API"""
+    def ask_gpt(self, question: str) -> str:
+        """Запрос к LLM агенту."""
         try:
             headers = {"Content-Type": "application/json"}
             data = {"messages": [{"role": "user", "text": question}]}
+            url = f"http://{LLM_AGENT_HOST}:{LLM_AGENT_PORT}/v1/completion"
 
-            response = requests.post(
-                "http://llm-agent:7999/v1/completion",
-                headers=headers,
-                json=data,
-                timeout=30,
-            )
+            resp = requests.post(url, headers=headers, json=data, timeout=30)
+            if resp.status_code != 200:
+                logger.error("LLM error %s: %s", resp.status_code, resp.text)
+                raise RuntimeError(f"LLM API: {resp.status_code}")
 
-            if response.status_code != 200:
-                logger.error(f"Yandex GPT API error: {response.text}")
-                raise Exception(f"Ошибка API: {response.status_code}")
-
-            return response.json()["result"]["alternatives"][0]["message"]["text"]
-
+            j = resp.json()
+            return j["result"]["alternatives"][0]["message"]["text"]
         except Exception as e:
-            logger.error(f"Error in ask_gpt: {str(e)}")
+            logger.exception("ask_gpt failed: %s", e)
             raise
 
 
 yandex_bot = YandexGPTBot()
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ── handlers ──────────────────────────────────────────────────────────────────
+async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привет! Я бот для работы с Yandex GPT. Просто напиши мне свой вопрос"
+        "Привет! Я бот для работы с Yandex GPT. Напиши свой вопрос."
     )
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text
-
-    if not user_message.strip():
-        await update.message.reply_text("Пожалуйста, введите вопрос")
+async def msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (update.message.text or "").strip()
+    if not text:
+        await update.message.reply_text("Пожалуйста, введите вопрос.")
         return
 
     try:
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id, action="typing"
         )
-        response = yandex_bot.ask_gpt(user_message)
-        await update.message.reply_text(response)
-
-    except Exception as e:
-        logger.error(f"Error handling message: {str(e)}")
+        reply = yandex_bot.ask_gpt(text)
+        await update.message.reply_text(reply)
+    except Exception:
         await update.message.reply_text(
-            "Извините, произошла ошибка при обработке вашего запроса. "
-            "Пожалуйста, попробуйте позже."
+            "Извините, произошла ошибка при обработке запроса. Попробуйте позже."
         )
 
 
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.error(f"Update {update} caused error {context.error}")
-    if update and update.effective_message:
-        await update.effective_message.reply_text(
-            "Произошла ошибка. Пожалуйста, попробуйте позже."
-        )
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logger.exception("Update %s caused error: %s", update, context.error)
 
 
-# --- health: helpers ---
-def _tcp_check(host: str, port: int, timeout: float = 0.7) -> bool:
+# ── health ────────────────────────────────────────────────────────────────────
+def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
@@ -118,73 +96,59 @@ def _tcp_check(host: str, port: int, timeout: float = 0.7) -> bool:
         return False
 
 
-def _readiness_probe() -> tuple[dict, bool]:
+async def healthz(_request: web.Request):
+    return web.json_response(
+        {"status": "alive", "uptime_seconds": round(time.time() - STARTED_AT, 3)}
+    )
+
+
+async def readyz(_request: web.Request):
     deps = {
         "telegram_token": bool(TELEGRAM_TOKEN),
-        "llm_agent_tcp": _tcp_check(LLM_AGENT_HOST, LLM_AGENT_PORT),
+        "llm_agent_tcp": _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT),
     }
     ok = all(deps.values())
-    payload = {
-        "status": "ok" if ok else "degraded",
-        "uptime_seconds": round(time.time() - STARTED_AT, 3),
-        "dependencies": deps,
-    }
-    return payload, ok
+    return web.json_response(
+        {
+            "status": "ok" if ok else "degraded",
+            "uptime_seconds": round(time.time() - STARTED_AT, 3),
+            "dependencies": deps,
+        },
+        status=200 if ok else 503,
+    )
 
 
-class _HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path.startswith("/healthz"):
-            payload = {
-                "status": "alive",
-                "uptime_seconds": round(time.time() - STARTED_AT, 3),
-            }
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(payload).encode("utf-8"))
-            return
-
-        if self.path.startswith("/readyz"):
-            payload, ok = _readiness_probe()
-            self.send_response(200 if ok else 503)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(payload).encode("utf-8"))
-            return
-
-        self.send_response(404)
-        self.end_headers()
-
-    def log_message(self, format, *args):
-        return
-
-
-def start_health_server(host: str = "0.0.0.0", port: int = HEALTH_PORT):
-    server = HTTPServer((host, port), _HealthHandler)
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    logger.info(f"Health server started on http://{host}:{port}")
-    return server
-
-
+# ── main ──────────────────────────────────────────────────────────────────────
 def main():
-    try:
-        start_health_server()
+    if not TELEGRAM_TOKEN:
+        raise RuntimeError("TELEGRAM_TOKEN is not set")
+    if not PUBLIC_URL:
+        raise RuntimeError("PUBLIC_URL is not set")
 
-        application = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
-        )
-        application.add_error_handler(error_handler)
+    app.add_handler(CommandHandler("start", start_cmd))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, msg_handler))
+    app.add_error_handler(error_handler)
 
-        logger.info("Бот запускается...")
-        application.run_polling()
+    app.web_app.add_routes(
+        [
+            web.get("/healthz", healthz),
+            web.get("/readyz", readyz),
+        ]
+    )
 
-    except Exception as e:
-        logger.error(f"Failed to start bot: {str(e)}")
+    webhook_url = f"{PUBLIC_URL.rstrip('/')}{WEBHOOK_PATH if WEBHOOK_PATH.startswith('/') else '/' + WEBHOOK_PATH}"
+    logger.info("Starting webhook server: %s -> %s", WEBHOOK_PATH, webhook_url)
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_path=WEBHOOK_PATH,
+        webhook_url=webhook_url,
+        secret_token=WEBHOOK_SECRET,
+        drop_pending_updates=True,
+    )
 
 
 if __name__ == "__main__":
