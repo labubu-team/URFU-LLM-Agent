@@ -76,19 +76,39 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 # ── JSON-логгер для YC ───────────────────────────────────────────────────────
 _DEFAULT_KEYS = {
-    "name","msg","args","levelname","levelno","pathname","filename","module",
-    "exc_info","exc_text","stack_info","lineno","funcName","created","msecs",
-    "relativeCreated","thread","threadName","processName","process"
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
 }
+
 
 class YCJsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         sev = record.levelname.upper()
-        if sev == "WARNING": sev = "WARN"
-        if sev == "CRITICAL": sev = "FATAL"
+        if sev == "WARNING":
+            sev = "WARN"
+        if sev == "CRITICAL":
+            sev = "FATAL"
         payload: Dict[str, Any] = {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(record.created))
-                         + f".{int(record.msecs):03d}Z",
+            + f".{int(record.msecs):03d}Z",
             "severity": sev,
             "logger": record.name,
             "event": getattr(record, "event", record.funcName or "log"),
@@ -101,16 +121,22 @@ class YCJsonFormatter(logging.Formatter):
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
 
+
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-_setup_logging()
 log = logging.getLogger("app")
-jinfo  = lambda m, **f: log.info(m,  extra=f)
-jerror = lambda m, **f: log.error(m, extra=f)
+
+
+def jinfo(m, **f):
+    return log.info(m, extra=f)
+
+
+def jerror(m, **f):
+    return log.error(m, extra=f)
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
@@ -120,9 +146,14 @@ def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
     except OSError:
         return False
 
+
 def _llm_url() -> str:
-    return f"{LLM_AGENT_URL}/v1/completion" if LLM_AGENT_URL \
-           else f"http://{LLM_AGENT_HOST}:{LLM_AGENT_PORT}/v1/completion"
+    return (
+        f"{LLM_AGENT_URL}/v1/completion"
+        if LLM_AGENT_URL
+        else f"http://{LLM_AGENT_HOST}:{LLM_AGENT_PORT}/v1/completion"
+    )
+
 
 # ── LLM клиент ───────────────────────────────────────────────────────────────
 class YandexGPTBot:
@@ -137,54 +168,82 @@ class YandexGPTBot:
                 timeout=15,
             )
             dt = round((time.perf_counter() - t0) * 1000, 1)
-            jinfo("LLM request done",
-                  event="llm_request", url=url, status=resp.status_code,
-                  duration_ms=dt, bytes=len(resp.content))
+            jinfo(
+                "LLM request done",
+                event="llm_request",
+                url=url,
+                status=resp.status_code,
+                duration_ms=dt,
+                bytes=len(resp.content),
+            )
             resp.raise_for_status()
             j = resp.json()
             return j["result"]["alternatives"][0]["message"]["text"]
         except Exception as e:
             dt = round((time.perf_counter() - t0) * 1000, 1)
-            jerror("LLM request failed",
-                   event="llm_error", url=url, duration_ms=dt, error=str(e))
+            jerror(
+                "LLM request failed",
+                event="llm_error",
+                url=url,
+                duration_ms=dt,
+                error=str(e),
+            )
             raise
 
+
 yandex_bot = YandexGPTBot()
+
 
 # ── Telegram handlers ────────────────────────────────────────────────────────
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = update.effective_user
-    jinfo("Start command", event="tg_command", command="start",
-          user_id=getattr(u, "id", None), username=getattr(u, "username", None))
-    await update.message.reply_text("Привет! Я бот для работы с Yandex GPT. Напиши свой вопрос.")
+    jinfo(
+        "Start command",
+        event="tg_command",
+        command="start",
+        user_id=getattr(u, "id", None),
+        username=getattr(u, "username", None),
+    )
+    await update.message.reply_text(
+        "Привет! Я бот для работы с Yandex GPT. Напиши свой вопрос."
+    )
+
 
 async def msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     user = update.effective_user
     text = (msg.text or "").strip()
 
-    jinfo("Incoming message",
-          event="tg_message",
-          chat_id=getattr(update.effective_chat, "id", None),
-          user_id=getattr(user, "id", None),
-          username=getattr(user, "username", None),
-          message_id=getattr(msg, "message_id", None),
-          text_len=len(text))
+    jinfo(
+        "Incoming message",
+        event="tg_message",
+        chat_id=getattr(update.effective_chat, "id", None),
+        user_id=getattr(user, "id", None),
+        username=getattr(user, "username", None),
+        message_id=getattr(msg, "message_id", None),
+        text_len=len(text),
+    )
 
     if not text:
         await msg.reply_text("Пожалуйста, введите вопрос.")
         return
 
     try:
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await context.bot.send_chat_action(
+            chat_id=update.effective_chat.id, action="typing"
+        )
         reply = yandex_bot.ask_gpt(text)
         await msg.reply_text(reply)
     except Exception as e:
-        await msg.reply_text("Извините, произошла ошибка при обработке запроса. Попробуйте позже.")
+        await msg.reply_text(
+            "Извините, произошла ошибка при обработке запроса. Попробуйте позже."
+        )
         jerror("Reply failed", event="tg_reply_error", error=str(e))
+
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     jerror("Unhandled error", event="unhandled_error", error=str(context.error))
+
 
 # ── Health server (отдельный порт) ───────────────────────────────────────────
 class _HealthHandler(BaseHTTPRequestHandler):
@@ -201,40 +260,59 @@ class _HealthHandler(BaseHTTPRequestHandler):
         status = 200
         try:
             if self.path.startswith("/healthz"):
-                self._send(200, {
-                    "status": "alive",
-                    "uptime_seconds": round(time.time() - STARTED_AT, 3),
-                })
+                self._send(
+                    200,
+                    {
+                        "status": "alive",
+                        "uptime_seconds": round(time.time() - STARTED_AT, 3),
+                    },
+                )
                 status = 200
                 return
             if self.path.startswith("/readyz"):
                 deps = {
                     "telegram_token": bool(TELEGRAM_TOKEN),
                     "llm_url": _llm_url(),
-                    "llm_agent_tcp": True if LLM_AGENT_URL else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT),
+                    "llm_agent_tcp": (
+                        True
+                        if LLM_AGENT_URL
+                        else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT)
+                    ),
                 }
                 ok = bool(TELEGRAM_TOKEN) and deps["llm_agent_tcp"]
-                self._send(200 if ok else 503, {
-                    "status": "ok" if ok else "degraded",
-                    "uptime_seconds": round(time.time() - STARTED_AT, 3),
-                    "dependencies": deps,
-                })
+                self._send(
+                    200 if ok else 503,
+                    {
+                        "status": "ok" if ok else "degraded",
+                        "uptime_seconds": round(time.time() - STARTED_AT, 3),
+                        "dependencies": deps,
+                    },
+                )
                 status = 200 if ok else 503
                 return
             self._send(404, {"status": "not_found"})
             status = 404
         finally:
             dt = round((time.perf_counter() - t0) * 1000, 1)
-            jinfo("HTTP access", event="http_access",
-                  method="GET", path=self.path, status=status,
-                  duration_ms=dt, remote=self.client_address[0])
+            jinfo(
+                "HTTP access",
+                event="http_access",
+                method="GET",
+                path=self.path,
+                status=status,
+                duration_ms=dt,
+                remote=self.client_address[0],
+            )
+
 
 def start_health_server(host: str = "0.0.0.0", port: int = HEALTH_PORT):
     server = HTTPServer((host, port), _HealthHandler)
     import threading
+
     threading.Thread(target=server.serve_forever, daemon=True).start()
     jinfo("Health server started", event="health_start", host=host, port=port)
     return server
+
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 def main():
@@ -247,12 +325,20 @@ def main():
 
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     application.add_handler(CommandHandler("start", start_cmd))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, msg_handler))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, msg_handler)
+    )
     application.add_error_handler(error_handler)
 
     webhook_url = f"{PUBLIC_URL.rstrip('/')}{WEBHOOK_PATH if WEBHOOK_PATH.startswith('/') else '/' + WEBHOOK_PATH}"
-    jinfo("Starting webhook", event="startup",
-          public_url=PUBLIC_URL, webhook_path=WEBHOOK_PATH, webhook_url=webhook_url, port=PORT)
+    jinfo(
+        "Starting webhook",
+        event="startup",
+        public_url=PUBLIC_URL,
+        webhook_path=WEBHOOK_PATH,
+        webhook_url=webhook_url,
+        port=PORT,
+    )
 
     application.run_webhook(
         listen="0.0.0.0",
@@ -262,6 +348,7 @@ def main():
         secret_token=WEBHOOK_SECRET,
         drop_pending_updates=True,
     )
+
 
 if __name__ == "__main__":
     main()
