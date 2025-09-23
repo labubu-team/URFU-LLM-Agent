@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/root/.local/bin:${PATH}" \
     PORT=8080 \
     HEALTH_PORT=8080 \
+    LOG_LEVEL=INFO \
     LLM_AGENT_HOST=llm-agent \
     LLM_AGENT_PORT=7999
 
