@@ -94,8 +94,15 @@ def _setup_logging():
 
 _setup_logging()
 log = logging.getLogger("app")
-jinfo = lambda m, **f: log.info(m, extra=f)
-jerror = lambda m, **f: log.error(m, extra=f)
+
+
+def jinfo(m, **f):
+    return log.info(m, extra=f)
+
+
+def jerror(m, **f):
+    return log.error(m, extra=f)
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
@@ -151,6 +158,7 @@ class YandexGPTBot:
 
 
 yandex_bot = YandexGPTBot()
+
 
 # ── Telegram handlers ────────────────────────────────────────────────────────
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -218,9 +226,9 @@ async def readyz(_: web.Request):
     deps = {
         "telegram_token": bool(TELEGRAM_TOKEN),
         "llm_url": _llm_url(),
-        "llm_agent_tcp": True
-        if LLM_AGENT_URL
-        else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT),
+        "llm_agent_tcp": (
+            True if LLM_AGENT_URL else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT)
+        ),
     }
     ok = deps["telegram_token"] and deps["llm_agent_tcp"]
     return web.json_response(
@@ -244,6 +252,7 @@ async def tg_webhook(request: web.Request):
 app.router.add_get("/healthz", healthz)
 app.router.add_get("/readyz", readyz)
 # роут вебхука добавим в amain(), когда будет создан PTB Application
+
 
 # ── Boot ─────────────────────────────────────────────────────────────────────
 async def amain():
