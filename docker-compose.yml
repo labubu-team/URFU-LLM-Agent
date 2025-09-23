@@ -36,11 +36,11 @@ services:
       # S3_PREFIX: ${S3_PREFIX:?S3_PREFIX is required}
     networks:
       - labubu_net
-  rag:
-    image: ghcr.io/labubu-team/labubu-rag:latest
-    pull_policy: always
-    networks:
-      - labubu_net
+  #  rag:
+  #    image: ghcr.io/labubu-team/labubu-rag:latest
+  #    pull_policy: always
+  #    networks:
+  #      - labubu_net
 
   output-safety:
     build:

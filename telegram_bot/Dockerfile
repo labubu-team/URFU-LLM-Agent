@@ -19,7 +19,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --group tg --no-cache --frozen
+RUN uv sync --python 3.13 --group tg --no-cache --frozen
 
 COPY ./telegram_bot/ .
 
