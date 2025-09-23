@@ -238,7 +238,6 @@ async def readyz(_: web.Request):
 
 
 async def tg_webhook(request: web.Request):
-    # безопасность вебхука
     if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
         return web.Response(status=403)
     data = await request.json()
@@ -248,18 +247,13 @@ async def tg_webhook(request: web.Request):
     return web.Response(status=200)
 
 
-# базовые роуты
 app.router.add_get("/healthz", healthz)
 app.router.add_get("/readyz", readyz)
-# роут вебхука добавим в amain(), когда будет создан PTB Application
 
 
 # ── Boot ─────────────────────────────────────────────────────────────────────
 async def amain():
     global application
-    if not TELEGRAM_TOKEN or not PUBLIC_URL:
-        raise RuntimeError("TELEGRAM_TOKEN and PUBLIC_URL must be set")
-
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     application.add_handler(CommandHandler("start", start_cmd))
     application.add_handler(
@@ -267,7 +261,6 @@ async def amain():
     )
     application.add_error_handler(error_handler)
 
-    # регистрируем роут вебхука после инициализации PTB
     app.router.add_post(WEBHOOK_PATH, tg_webhook)
 
     webhook_url = (
