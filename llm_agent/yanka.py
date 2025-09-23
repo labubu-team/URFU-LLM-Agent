@@ -147,7 +147,7 @@ async def process_completion(request: Request):
         # а не весь диалог + ответ
         generated_response = pipe(
             prompt,
-            max_new_tokens=256,
+            max_new_tokens=128,
             return_full_text=False,
             do_sample=True,
             temperature=0.8,
@@ -156,6 +156,7 @@ async def process_completion(request: Request):
             eos_token_id=eos_token_id,
         )
         response_text = generated_response[0]["generated_text"]
+        response_text = response_text.split('<|im_end|>')[0]
         response_text = response_text.replace(pipe.tokenizer.eos_token, "").strip()
         response_text = re.sub(r'^\*?\*?Ты:\*?\*?\n*', '', response_text).strip()
 
