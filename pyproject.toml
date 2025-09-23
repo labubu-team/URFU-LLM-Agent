@@ -19,6 +19,7 @@ dev = [
   "mypy>=1.15.0",
   "ruff>=0.13.0",
   "isort>=5.12.0",
+  "black[jupyter]>=25.9.0",
 ]
 llm = [
     "fastapi>=0.116.2",
