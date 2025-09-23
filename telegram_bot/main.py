@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -81,17 +82,19 @@ class YCJsonFormatter(logging.Formatter):
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
 
+
 def _setup_logging():
     root = logging.getLogger()
     root.handlers.clear()
     root.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
-    h = logging.StreamHandler()
-    h.setFormatter(YCJsonFormatter())
-    root.addHandler(h)
+    handler = logging.StreamHandler(stream=sys.stdout)  # stdout важно для YC
+    handler.setFormatter(YCJsonFormatter())
+    root.addHandler(handler)
+
 
 _setup_logging()
 log = logging.getLogger("app")
-jinfo  = lambda m, **f: log.info(m,  extra=f)
+jinfo = lambda m, **f: log.info(m, extra=f)
 jerror = lambda m, **f: log.error(m, extra=f)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -199,64 +202,50 @@ async def msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     jerror("Unhandled error", event="unhandled_error", error=str(context.error))
 
-# ── Health server (отдельный порт) ───────────────────────────────────────────
-class _HealthHandler(BaseHTTPRequestHandler):
-    def _send(self, status: int, payload: Dict[str, Any]):
-        body = json.dumps(payload).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
 
-    def do_GET(self):
-        t0 = time.perf_counter()
-        status = 200
-        try:
-            if self.path.startswith("/healthz"):
-                self._send(200, {
-                    "status": "alive",
-                    "uptime_seconds": round(time.time() - STARTED_AT, 3),
-                })
-                status = 200
-                return
-            if self.path.startswith("/readyz"):
-                deps = {
-                    "telegram_token": bool(TELEGRAM_TOKEN),
-                    "llm_url": _llm_url(),
-                    "llm_agent_tcp": True if LLM_AGENT_URL else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT),
-                }
-                ok = bool(TELEGRAM_TOKEN) and deps["llm_agent_tcp"]
-                self._send(200 if ok else 503, {
-                    "status": "ok" if ok else "degraded",
-                    "uptime_seconds": round(time.time() - STARTED_AT, 3),
-                    "dependencies": deps,
-                })
-                status = 200 if ok else 503
-                return
-            self._send(404, {"status": "not_found"})
-            status = 404
-        finally:
-            dt = round((time.perf_counter() - t0) * 1000, 1)
-            jinfo("HTTP access", event="http_access",
-                  method="GET", path=self.path, status=status,
-                  duration_ms=dt, remote=self.client_address[0])
-
-def start_health_server(host: str = "0.0.0.0", port: int = HEALTH_PORT):
-    server = HTTPServer((host, port), _HealthHandler)
-    import threading
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    jinfo("Health server started", event="health_start", host=host, port=port)
-    return server
-
-# ── Main ─────────────────────────────────────────────────────────────────────
-def main():
-    if not TELEGRAM_TOKEN:
-        raise RuntimeError("TELEGRAM_TOKEN is not set")
-    if not PUBLIC_URL:
-        raise RuntimeError("PUBLIC_URL is not set")
+# ── AIOHTTP APP (единый порт 8080) ───────────────────────────────────────────
+app = web.Application()
+application: Application | None = None  # заполнится в amain()
 
 
+async def healthz(_: web.Request):
+    return web.json_response(
+        {"status": "alive", "uptime_seconds": round(time.time() - STARTED_AT, 3)}
+    )
+
+
+async def readyz(_: web.Request):
+    deps = {
+        "telegram_token": bool(TELEGRAM_TOKEN),
+        "llm_url": _llm_url(),
+        "llm_agent_tcp": True
+        if LLM_AGENT_URL
+        else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT),
+    }
+    ok = deps["telegram_token"] and deps["llm_agent_tcp"]
+    return web.json_response(
+        {"status": "ok" if ok else "degraded", "dependencies": deps},
+        status=200 if ok else 503,
+    )
+
+
+async def tg_webhook(request: web.Request):
+    # безопасность вебхука
+    if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
+        return web.Response(status=403)
+    data = await request.json()
+    assert application is not None
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
+    return web.Response(status=200)
+
+
+# базовые роуты
+app.router.add_get("/healthz", healthz)
+app.router.add_get("/readyz", readyz)
+# роут вебхука добавим в amain(), когда будет создан PTB Application
+
+# ── Boot ─────────────────────────────────────────────────────────────────────
 async def amain():
     global application
     if not TELEGRAM_TOKEN or not PUBLIC_URL:
@@ -269,12 +258,13 @@ async def amain():
     )
     application.add_error_handler(error_handler)
 
-    # Роут вебхука (после появления application)
-    aio.router.add_post(WEBHOOK_PATH, tg_webhook)
+    # регистрируем роут вебхука после инициализации PTB
+    app.router.add_post(WEBHOOK_PATH, tg_webhook)
 
-    webhook_url = f"{PUBLIC_URL.rstrip('/')}{WEBHOOK_PATH if WEBHOOK_PATH.startswith('/') else '/' + WEBHOOK_PATH}"
-    jinfo("Starting webhook", event="startup",
-          public_url=PUBLIC_URL, webhook_path=WEBHOOK_PATH, webhook_url=webhook_url, port=PORT)
+    webhook_url = (
+        f"{PUBLIC_URL.rstrip('/')}"
+        f"{WEBHOOK_PATH if WEBHOOK_PATH.startswith('/') else '/' + WEBHOOK_PATH}"
+    )
 
     await application.initialize()
     await application.start()
@@ -282,7 +272,7 @@ async def amain():
         url=webhook_url, secret_token=WEBHOOK_SECRET, drop_pending_updates=True
     )
 
-    runner = web.AppRunner(aio)
+    runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
