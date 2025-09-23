@@ -36,19 +36,33 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
     
-      - name: YC Docker Auth
-        run: |
-          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          source "/home/runner/.bashrc" && \
-          yc config profile create test && \
-          yc config set folder-id ${{ secrets.YC_FOLDER }} && \
-          yc config set organization-id ${{ secrets.YC_ORG_ID }} && \
-          yc config list && \
-          yc container registry configure-docker
 
-      - name: Build & push Telegram Bot image YC_REPO
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+
+      # - name: YC Docker Auth
+      #   run: |
+      #     curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+      #     source "/home/runner/.bashrc" && \
+      #     yc config profile create test && \
+      #     yc config set folder-id ${{ secrets.YC_FOLDER }} && \
+      #     yc config set organization-id ${{ secrets.YC_ORG_ID }} && \
+      #     yc config list && \
+      #     yc container registry configure-docker
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
         run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-tgbot
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-tgbot
           docker build -f ./labubu-tgbot/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
