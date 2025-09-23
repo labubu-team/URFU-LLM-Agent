@@ -1,6 +1,7 @@
 # Использование triton https://github.com/triton-inference-server
-FROM nvcr.io/nvidia/tritonserver:22.01-py3
+# FROM nvcr.io/nvidia/tritonserver:22.01-py3
 FROM python:3.13-slim
+FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
