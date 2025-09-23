@@ -20,4 +20,8 @@ RUN uv sync --group tg --no-cache --frozen
 
 COPY ./telegram_bot/ .
 
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -fsS "http://127.0.0.1:${HEALTH_PORT}/readyz" || exit 1
+
 CMD ["uv", "run", "main.py"]

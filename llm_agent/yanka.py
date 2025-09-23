@@ -71,18 +71,16 @@ SYSTEM_PROMPT = """
 try:
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     pipe = pipeline(
-        "text-generation",
-        model=MODEL_NAME,
-        tokenizer=tokenizer,
-        dtype=torch.bfloat16
+        "text-generation", model=MODEL_NAME, tokenizer=tokenizer, dtype=torch.bfloat16
     )
     pipe = pipe.to("cuda")
 
     logging.info("Warming up the model...")
     # Прогрев модели))))
     warmup_messages = [{"role": "user", "content": "Привет!"}]
-    prompt = tokenizer.apply_chat_template(warmup_messages, tokenize=False,
-                                           add_generation_prompt=True)
+    prompt = tokenizer.apply_chat_template(
+        warmup_messages, tokenize=False, add_generation_prompt=True
+    )
     _ = pipe(prompt, max_new_tokens=2)
     logging.info("Model is warmed up and ready.")
 except Exception as e:
@@ -123,18 +121,17 @@ async def process_completion(request: Request):
 
         # Добавляем системный промпт в самое начало диалога
         final_messages = [
-            {"role": "system",
-             "content": SYSTEM_PROMPT.replace("{{user}}",
-                                              "пользователь")}
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT.replace("{{user}}", "пользователь"),
+            }
         ] + transformed_messages
 
         # Применяем шаблон чата, чтобы получить единую строку для модели
         # `add_generation_prompt=True` добавляет специальный токен, который
         # говорит модели "теперь твой черед отвечать"
         prompt = pipe.tokenizer.apply_chat_template(
-            final_messages,
-            tokenize=False,
-            add_generation_prompt=True
+            final_messages, tokenize=False, add_generation_prompt=True
         )
 
         # max_new_tokens: сколько максимум токенов сгенерировать в ответе
@@ -146,13 +143,16 @@ async def process_completion(request: Request):
             return_full_text=False,
             do_sample=True,
             temperature=0.8,
-            top_p=0.9
+            top_p=0.9,
         )
         response_text = generated_response[0]["generated_text"]
 
         response_data = {
-            "result": {"alternatives": [{"message": {"role": "assistant",
-                                                     "text": response_text}}]}
+            "result": {
+                "alternatives": [
+                    {"message": {"role": "assistant", "text": response_text}}
+                ]
+            }
         }
         return response_data
 

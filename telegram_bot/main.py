@@ -1,45 +1,5 @@
-"""⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⣤⣤⣼⣷⣤⣤⣤⣤⣤⣤⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠀⠀⠀⠀⠀⠀⡀⠀⠀⢸⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⣇⣿⣛⣹⣿⣬⣿⣿⣽⣯⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⢶⠖⢳⠀⠀⠀⠀⠀⠀⠡⠀⠀⠘⣇⠀⠀⠀⠀⠀⠀⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠉⢽⣿⡏⠀⠀⠀⠀⠀⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣛⣤⣿⣦⣰⠀⠀⠀⠀⠀⠀⣀⠀⠐⠒⠹⠃⠀⠀⠀⠀⣼⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⢸⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣨⣿⣿⠿⠻⣿⡙⠆⠀⠀⣠⣾⡟⢹⣶⣦⡄⠀⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⢺⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣿⣿⠋⠀⢠⣿⣧⡞⠀⣴⣿⣿⣿⡟⠉⢿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠸⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣿⣿⡟⠀⣤⠉⣿⣿⠀⢠⣿⣿⣿⡟⠀⠀⢸⣿⣟⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣺⣿⣿⠀⣰⣿⠀⣿⣿⠀⣾⣿⣿⡟⠀⣠⡄⢸⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⠃⠀⣿⡏⢠⣿⣿⣤⣿⣿⣿⠁⢸⣿⡇⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣀⣼⣿⣷⣿⡿⣿⠿⠿⣿⣧⣠⣿⣿⢁⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⣿⡿⣽⣿⣷⣶⡋⠂⠀⣊⠀⢉⠽⠻⢿⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣞⣹⡿⣿⣿⣿⣿⣻⣿⣷⣧⣰⡀⠉⠀⢀⡠⠎⠩⣭⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⠄⣰⠟⣻⣿⡿⢿⣿⣿⣿⣿⣷⣿⣿⣿⡇⠀⡙⣻⣦⠀⢸⣖⠒⠺⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⠃⢸⣷⡿⠋⣹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣾⣿⡿⣿⣷⣏⠉⢛⣀⣼⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣶⡟⢉⣴⣿⣿⣿⣿⣿⣿⣿⡿⠛⠛⠋⠉⠛⠻⢿⣿⣿⣽⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡿⢟⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠙⠻⣿⣿⣽⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡼⣷⣿⡟⣿⣿⣿⣿⣿⡟⠀⠀⠀⣀⠖⠰⢦⠤⠤⠀⠀⠀⠀⠀⠀⠀⢀⡸⣿⣿⣻⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢱⣿⣿⣿⣿⣿⣿⣿⣟⠀⠀⠀⢠⠏⠀⣾⡿⣷⡀⠀⠀⠀⠀⡾⠋⣩⡍⠁⢸⣿⣿⣻⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡿⣿⣿⣿⣿⣿⣿⣿⣿⠰⡀⠀⢸⠀⢸⣿⣿⣿⠃⠀⠀⠀⢸⠃⢰⣿⣿⠀⢸⣿⣿⣿⣿⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⣿⣿⣿⣿⣿⣿⡇⠻⣄⠈⢧⠈⠿⠿⠋⠀⢠⣶⣤⣬⠀⢸⣿⡏⠀⢸⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⣦⡈⠳⣄⡀⠀⠀⠀⠀⠀⠙⠉⠀⠁⠘⠛⢁⣰⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣄⣉⡳⠶⠤⣤⣀⣀⣀⣀⣀⣤⣶⣿⣿⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⢤⡀⠀⠀⠀⠀⠉⠻⣿⣿⣿⣿⣍⣿⣿⣿⣿⣿⣿⣶⣶⣶⣿⣿⣿⣷⣾⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢳⣶⡛⠆⠀⠀⠀⠀⠸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣤⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠏⠁⠀⠀⠀⠀⢰⣤⣽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢧⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠰⣼⠆⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢿⣿⣿⣿⣿⣿⣿⣿⣿⡗⢤⣤⠾⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣽⣿⣿⣿⣿⣿⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠛⠻⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⢀⡤⠶⠋⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣶⡋⣤⠀⠀⢀⣀⢸⣶
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠤⠀⠀⠀⠀⠀⠀⢀⣴⣟⠁⢸⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⢚⣿⠞⠛⠁⠀⠀⣈⣹⣿⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠐⣖⠒⠶⢤⣤⣤⣤⡾⠟⠛⠙⠳⢼⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⢀⣴⣟⠥⠤⠚⢿⣤⣾⣿⣿⣿⣿
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣀⡀⠀⠀⠰⢆⡀⠀⠀⠀⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⣀⣴⣿⣿⣿⡋⢉⣠⣾⣿⣿⣿⣿⣿⣿
-⠀⠀⠀⠀⣀⠀⠶⠆⠀⠀⠀⠀⢰⠀⠀⠀⢀⣀⡉⢓⣦⣠⣴⠾⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⡀⠊⡉⣅⣀⣿⣿⣿⣿⣿⣿⣻⣿⡿⣿⣿⣿
-⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢶⣶⣤⣥⣼⣿⣿⡏⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⠄⠀⠀⣼⢟⣽⠟⣿⣿⣿⣯⣿⢟⡟⠛⠛⠎⠙⠿
-⠀⠀⢀⡀⠱⡀⠀⠀⠀⠀⠀⢤⣄⡀⢰⣯⣿⣿⣿⣿⡿⠛⠃⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣭⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣄⣀⠀⠘⠘⠛⠚⠛⠛⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⢸⣷⣄⠱⡄⠀⠀⠀⠐⠚⠛⠣⣼⠻⠛⠟⠋⠀⠀⠀⠀⠘⠛⠋⠋⠙⣿⠻⣿⣿⣿⣿⣿⣿⣿⣿⡿⢿⣿⣯⣥⣤⣬⣽⡿⢻⣿⣿⡂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⣈⡙⠿⢿⣽⣷⣄⣀⣴⣢⠤⠖⠠⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠏⠛⠻⠿⡿⣿⡟⢺⣿⣿⡿⠛⠛⢃⣘⠛⠛⠟⠛⠛⠻⢿⢿⠏⠙⠿⣷⢾⠂⠀⠀⠂⠀⠤⠀⠀⠀⠀⠀⠀
-⠟⢿⣶⣤⡈⠉⣉⣉⢉⠉⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠆⠀⠀⠀⠁⠈⠁⢨⠭⣉⠀⠀⠀⢈⠁⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"""
-
 import logging
 import os
-
 import dotenv
 import requests
 from telegram import Update
@@ -51,6 +11,12 @@ from telegram.ext import (
     filters,
 )
 
+import json
+import time
+import socket
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 dotenv.load_dotenv()
 
 SERVICE_ACCOUNT_ID = os.getenv("SERVICE_ACCOUNT_ID")
@@ -61,9 +27,16 @@ FOLDER_ID = os.getenv("FOLDER_ID")
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
+# --- health ---
+HEALTH_PORT = int(os.getenv("HEALTH_PORT", "8080"))
+STARTED_AT = time.time()
+LLM_AGENT_HOST = os.getenv("LLM_AGENT_HOST", "llm-agent")
+LLM_AGENT_PORT = int(os.getenv("LLM_AGENT_PORT", "7999"))
+# --- /health ---
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
@@ -76,10 +49,7 @@ class YandexGPTBot:
     def ask_gpt(self, question):
         """Запрос к Yandex GPT API"""
         try:
-            headers = {
-                "Content-Type": "application/json",
-            }
-
+            headers = {"Content-Type": "application/json"}
             data = {"messages": [{"role": "user", "text": question}]}
 
             response = requests.post(
@@ -100,19 +70,16 @@ class YandexGPTBot:
             raise
 
 
-# Создаем экземпляр бота
 yandex_bot = YandexGPTBot()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик команды /start"""
     await update.message.reply_text(
         "Привет! Я бот для работы с Yandex GPT. Просто напиши мне свой вопрос"
     )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка текстовых сообщений"""
     user_message = update.message.text
 
     if not user_message.strip():
@@ -120,11 +87,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        # Показываем статус "печатает"
         await context.bot.send_chat_action(
             chat_id=update.effective_chat.id, action="typing"
         )
-
         response = yandex_bot.ask_gpt(user_message)
         await update.message.reply_text(response)
 
@@ -137,7 +102,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик ошибок"""
     logger.error(f"Update {update} caused error {context.error}")
     if update and update.effective_message:
         await update.effective_message.reply_text(
@@ -145,9 +109,69 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-def main():
-    """Основная функция"""
+# --- health: helpers ---
+def _tcp_check(host: str, port: int, timeout: float = 0.7) -> bool:
     try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _readiness_probe() -> tuple[dict, bool]:
+    deps = {
+        "telegram_token": bool(TELEGRAM_TOKEN),
+        "llm_agent_tcp": _tcp_check(LLM_AGENT_HOST, LLM_AGENT_PORT),
+    }
+    ok = all(deps.values())
+    payload = {
+        "status": "ok" if ok else "degraded",
+        "uptime_seconds": round(time.time() - STARTED_AT, 3),
+        "dependencies": deps,
+    }
+    return payload, ok
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.startswith("/healthz"):
+            payload = {
+                "status": "alive",
+                "uptime_seconds": round(time.time() - STARTED_AT, 3),
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(payload).encode("utf-8"))
+            return
+
+        if self.path.startswith("/readyz"):
+            payload, ok = _readiness_probe()
+            self.send_response(200 if ok else 503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(payload).encode("utf-8"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        return
+
+
+def start_health_server(host: str = "0.0.0.0", port: int = HEALTH_PORT):
+    server = HTTPServer((host, port), _HealthHandler)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    logger.info(f"Health server started on http://{host}:{port}")
+    return server
+
+
+def main():
+    try:
+        start_health_server()
+
         application = Application.builder().token(TELEGRAM_TOKEN).build()
 
         application.add_handler(CommandHandler("start", start))

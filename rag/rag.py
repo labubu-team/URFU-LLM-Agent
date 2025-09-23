@@ -14,8 +14,7 @@ from langchain_text_splitters.character import RecursiveCharacterTextSplitter
 dotenv.load_dotenv()
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -69,8 +68,7 @@ class RAG:
                 continue
 
             text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000, chunk_overlap=50,
-                separators=["\n\n", "\n", " ", ""]
+                chunk_size=1000, chunk_overlap=50, separators=["\n\n", "\n", " ", ""]
             )
             chunks = text_splitter.split_documents(valid_docs)
             all_chunks.extend(chunks)
@@ -78,13 +76,17 @@ class RAG:
         if not all_chunks:
             print("Не найдено контента для индексации. Создан пустой индекс.")
             all_chunks = [
-                Document(page_content="Нет доступных документов для поиска.",
-                         metadata={})]
+                Document(
+                    page_content="Нет доступных документов для поиска.", metadata={}
+                )
+            ]
 
         vectorstore = FAISS.from_documents(all_chunks, self.embeddings)
         vectorstore.save_local("./vectorstore_faiss", index_name="index")
-        print(f"""Индекс успешно создан и сохранен.
-              Проиндексировано чанков: {len(all_chunks)}""")
+        print(
+            f"""Индекс успешно создан и сохранен.
+              Проиндексировано чанков: {len(all_chunks)}"""
+        )
 
     def download_from_s3(self):
         # Проверка подключения - валидация переменных окружения
@@ -120,8 +122,7 @@ class RAG:
 
                 local_path = os.path.join(tmpdir, os.path.basename(key))
                 try:
-                    s3.download_file(self.REQUIRED_VARS["S3_BUCKET"], key,
-                                     local_path)
+                    s3.download_file(self.REQUIRED_VARS["S3_BUCKET"], key, local_path)
                     if os.path.getsize(local_path) == 0:
                         continue
                     self.local_files.append(local_path)
@@ -133,24 +134,27 @@ class RAG:
 
     def search_engine(self, current_user_input: str = ""):
         if not os.path.exists("./vectorstore_faiss"):
-            print("""Ошибка: папка с индексом
-            './vectorstore_faiss' не найдена. Запустите индексацию.""")
+            print(
+                """Ошибка: папка с индексом
+            './vectorstore_faiss' не найдена. Запустите индексацию."""
+            )
             return ""
 
         vectorstore = FAISS.load_local(
-            "./vectorstore_faiss",
-            self.embeddings,
-            allow_dangerous_deserialization=True
+            "./vectorstore_faiss", self.embeddings, allow_dangerous_deserialization=True
         )
         retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
 
         retrieved_docs = retriever.invoke(current_user_input)
 
         if retrieved_docs:
-            sources = {doc.metadata.get('source', 'Неизвестно')
-                       for doc in retrieved_docs}
-            print(f"""RAG: найдено {len(retrieved_docs)} релевантных \
-                  фрагментов из источников: {list(sources)}""")
+            sources = {
+                doc.metadata.get("source", "Неизвестно") for doc in retrieved_docs
+            }
+            print(
+                f"""RAG: найдено {len(retrieved_docs)} релевантных \
+                  фрагментов из источников: {list(sources)}"""
+            )
             context_chunks = "\n\n---\n\n".join(
                 [doc.page_content for doc in retrieved_docs]
             )
