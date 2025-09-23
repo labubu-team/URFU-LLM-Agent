@@ -7,8 +7,7 @@ from rag import RAG
 
 # Настройка логирования
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="RAG Service API",
     description="API для поиска релевантной информации в документах из S3.",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 
@@ -25,21 +24,15 @@ app = FastAPI(
 
 class SearchRequest(BaseModel):
     query: str = Field(
-        ...,
-        min_length=3,
-        description="Поисковый запрос для поиска по документам."
+        ..., min_length=3, description="Поисковый запрос для поиска по документам."
     )
 
 
 class SearchResponse(BaseModel):
     context: str = Field(
-        ...,
-        description="Найденный контекст из документов, релевантный запросу."
+        ..., description="Найденный контекст из документов, релевантный запросу."
     )
-    message: str = Field(
-        "success",
-        description="Статус ответа."
-    )
+    message: str = Field("success", description="Статус ответа.")
 
 
 # Создаем один глобальный экземпляр RAG.
@@ -53,8 +46,7 @@ try:
     rag_instance = RAG()
     logger.info("RAG-система успешно инициализирована.")
 except Exception as e:
-    logger.error(f"Критическая ошибка при инициализации RAG: {e}",
-                 exc_info=True)
+    logger.error(f"Критическая ошибка при инициализации RAG: {e}", exc_info=True)
     rag_instance = None
 
 
@@ -67,13 +59,12 @@ def health_check():
     if rag_instance is None:
         raise HTTPException(
             status_code=503,
-            detail="Сервис недоступен, не удалось инициализировать RAG."
+            detail="Сервис недоступен, не удалось инициализировать RAG.",
         )
     return {"status": "ok"}
 
 
-@app.post("/search", response_model=SearchResponse,
-          summary="Поиск по документам")
+@app.post("/search", response_model=SearchResponse, summary="Поиск по документам")
 def search(request: SearchRequest):
     """
     Принимает поисковый запрос и возвращает наиболее релевантный контекст
@@ -82,19 +73,19 @@ def search(request: SearchRequest):
     if rag_instance is None:
         raise HTTPException(
             status_code=503,
-            detail="Сервис временно недоступен из-за ошибки инициализации."
+            detail="Сервис временно недоступен из-за ошибки инициализации.",
         )
     logger.info(f"Получен поисковый запрос: '{request.query}'")
     try:
         context = rag_instance.search_engine(request.query)
         if not context:
             logger.info("Релевантных фрагментов не найдено.")
-            return SearchResponse(context="",
-                                  message="No relevant context found.")
+            return SearchResponse(context="", message="No relevant context found.")
 
         logger.info("Контекст успешно найден.")
         return SearchResponse(context=context)
     except Exception as e:
         logger.error(f"Ошибка во время поиска: {e}", exc_info=True)
-        raise HTTPException(status_code=500,
-                            detail="Внутренняя ошибка сервера при поиске.")
+        raise HTTPException(
+            status_code=500, detail="Внутренняя ошибка сервера при поиске."
+        )
