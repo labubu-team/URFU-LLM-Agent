@@ -8,6 +8,8 @@ on:
 permissions:
   contents: read
   packages: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -36,15 +38,37 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
     
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
         run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-tgbot
-          docker build -f ./labubu-tgbot/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-tgbot
+          docker build -f ./telegram_bot/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
+
+      # - name: YC Docker Auth
+      #   run: |
+      #     curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+      #     source "/home/runner/.bashrc" && \
+      #     yc config profile create test && \
+      #     yc config set folder-id ${{ secrets.YC_FOLDER }} && \
+      #     yc config set organization-id ${{ secrets.YC_ORG_ID }} && \
+      #     yc config list && \
+      #     yc container registry configure-docker
+
 
   build-and-push_rag:
     runs-on: ubuntu-latest
@@ -68,15 +92,35 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
 
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
         run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
-          docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-rag
+          docker build -f ./rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
+
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
+
+      # - name: Build & push rag image YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
+      #     docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}
 
   build-and-push_moderation_nlp:
     runs-on: ubuntu-latest
@@ -99,16 +143,36 @@ jobs:
           docker build -f ./moderation_nlp/Dockerfile -t $REPO:latest -t $REPO:${{ github.run_number }} .
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
-      
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
         run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
-          docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-moderation_nlp
+          docker build -f ./moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
+
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
+
+      # - name: Build & push moderation_nlp YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
+      #     docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}
 
   build-and-push_moderation_regex:
     runs-on: ubuntu-latest
@@ -131,16 +195,36 @@ jobs:
           docker build -f ./moderation_regex/Dockerfile -t $REPO:latest -t $REPO:${{ github.run_number }} .
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
-      
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
         run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
-          docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-moderation_regex
+          docker build -f ./moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
+
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
+
+      # - name: Build & push moderation_regex YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
+      #     docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}
       
 
   build-and-push_llm-agent:
@@ -165,12 +249,32 @@ jobs:
           docker push $REPO:latest
           docker push $REPO:${{ github.run_number }}
 
-      - name: YC Docker Auth
-        run: yc container registry configure-docker
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
 
-      - name: Build & push LLM Agent YC_REPO
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
         run: |
-          YC_REPO=cr.yandex/crpb6l14270hcph4dce5/llm_agent
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-llm_agent
           docker build -f ./llm_agent/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
+
+      # - name: YC Docker Auth
+      #   run: yc container registry configure-docker
+
+      # - name: Build & push LLM Agent YC_REPO
+      #   run: |
+      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/llm_agent
+      #     docker build -f ./llm_agent/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+      #     docker push $YC_REPO:latest
+      #     docker push $YC_REPO:${{ github.run_number }}

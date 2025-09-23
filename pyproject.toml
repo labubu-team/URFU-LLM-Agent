@@ -1,7 +1,7 @@
 [project]
 name = "test_bot"
 version = "0"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "cryptography>=42.0.0",
     "fastapi>=0.116.2",
@@ -12,16 +12,17 @@ dependencies = [
     "uvicorn>=0.35.0",
 ]
 
+
 [dependency-groups]
 dev = [
   "coverage>=7.6.12",
   "mypy>=1.15.0",
   "ruff>=0.13.0",
   "isort>=5.12.0",
+  "black[jupyter]>=25.9.0",
 ]
 llm = [
     "fastapi>=0.116.2",
-    "requests>=2.32.5",
     "transformers>=4.56.1",
     "uvicorn>=0.35.0",
     "python-dotenv>=1.1.1",
@@ -30,10 +31,6 @@ llm = [
     "protobuf>=6.32.1",
 ]
 rag = [
-    "fastapi>=0.116.2",
-    "requests>=2.32.5",
-    "uvicorn>=0.35.0",
-    "cryptography>=42.0.0",
     "pydantic>=2.9.0",
     "PyJWT>=2.10.1",
     "python-dotenv>=1.1.1",
@@ -45,11 +42,14 @@ rag = [
     "sentence-transformers>=5.1.0",
 ]
 tg = [
-    "python-telegram-bot>=22.4",
-    "cryptography>=42.0.0",
+    "python-telegram-bot[webhooks]>=21.6,<22",
+    "aiohttp>=3.9,<4",
     "pydantic>=2.9.0",
     "PyJWT>=2.10.1",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.5",
 ]
+
 moder-nlp = [
     "fastapi>=0.116.2",
     "requests>=2.32.5",
