@@ -1,31 +1,28 @@
 # Используем официальный Python образ
 FROM python:3.11-slim
 
-# Устанавливаем рабочую директорию
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_LINK_MODE=copy \
+    PATH="/root/.local/bin:${PATH}"
+
 WORKDIR /app
 
-# Устанавливаем системные зависимости
-RUN apt-get update && apt-get install -y \
-    curl \
+COPY pyproject.toml uv.lock ./
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем файл зависимостей
-COPY requirements.txt .
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Устанавливаем Python зависимости
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN uv sync --group moder-nlp --no-cache --frozen
 
 # Копируем исходный код приложения
-COPY main.py .
-
-# Создаем пользователя без привилегий
-RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
-USER app
+COPY ./main.py .
 
 # Указываем порт
 EXPOSE 8000
 
 # Команда запуска
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
