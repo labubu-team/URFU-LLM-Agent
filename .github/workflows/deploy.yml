@@ -73,6 +73,9 @@ jobs:
           revision-concurrency: 8
           revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-tgbot:${{ github.run_number }}
           revision-execution-timeout: 10
+          revision-secrets: |
+            TELEGRAM_TOKEN=tg_api/latest/tg_token
+            SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
 
 
   build-and-push_rag:
