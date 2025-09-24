@@ -27,15 +27,5 @@ USER app
 # Указываем порт
 EXPOSE 8000
 
-# Переменные окружения по умолчанию
-ENV PORT=8000
-ENV HOST=0.0.0.0
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:$PORT/ || exit 1
-
 # Команда запуска
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

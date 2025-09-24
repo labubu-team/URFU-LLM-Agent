@@ -65,7 +65,7 @@ class OrchestratorConfig:
         self.llm_agent_url = os.getenv("LLM_AGENT_URL", "http://llm-agent:8000")
 
         # Таймауты
-        self.request_timeout = int(os.getenv("REQUEST_TIMEOUT", "30"))
+        self.request_timeout = int(os.getenv("REQUEST_TIMEOUT", "100"))
         self.health_check_timeout = int(os.getenv("HEALTH_CHECK_TIMEOUT", "5"))
 
         # Настройки обработки
