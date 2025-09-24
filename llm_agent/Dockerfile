@@ -22,8 +22,9 @@ RUN uv sync --group llm --no-cache --frozen
 
 COPY ./llm_agent/ .
 
-# Определение порта, на котором будет работать контейнер
 EXPOSE 8000
 
-# Команда для запуска Uvicorn (ASGI-сервер для FastAPI)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+  CMD curl -fsS -m 3 http://127.0.0.1:8000/healthz > /dev/null || exit 1
+
 CMD ["uv", "run", "uvicorn", "yanka:app", "--host", "0.0.0.0", "--port", "8000"]
