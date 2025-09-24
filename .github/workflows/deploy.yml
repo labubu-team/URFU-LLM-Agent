@@ -74,8 +74,8 @@ jobs:
           revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-tgbot:${{ github.run_number }}
           revision-execution-timeout: 10
           revision-secrets: |
-            TELEGRAM_TOKEN=tg_api/latest/tg_token
-            SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
+            TELEGRAM_TOKEN=e6qno2jsufp1d2i8n2km/latest/tg_token
+            SERVICE_ACCOUNT_ID=e6qgn68inv1vekf3iib9/latest/SERVICE_ACCOUNT_ID
 
 
   build-and-push_rag:
@@ -134,9 +134,9 @@ jobs:
           revision-concurrency: 8
           revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-rag:${{ github.run_number }}
           revision-execution-timeout: 10
-          revision-secrets: |
-            TELEGRAM_TOKEN=tg_api/latest/tg_token
-            SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
 
   build-and-push_moderation_nlp:
     runs-on: ubuntu-latest
@@ -194,9 +194,9 @@ jobs:
           revision-concurrency: 8
           revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-moderation-nlp:${{ github.run_number }}
           revision-execution-timeout: 10
-          revision-secrets: |
-            TELEGRAM_TOKEN=tg_api/latest/tg_token
-            SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
 
   build-and-push_moderation_regex:
     runs-on: ubuntu-latest
@@ -254,9 +254,9 @@ jobs:
           revision-concurrency: 8
           revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-moderation_regex:${{ github.run_number }}
           revision-execution-timeout: 10
-          revision-secrets: |
-            TELEGRAM_TOKEN=tg_api/latest/tg_token
-            SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
       
 
   build-and-push_llm-agent:
@@ -360,6 +360,6 @@ jobs:
           revision-concurrency: 8
           revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-orchestrator:${{ github.run_number }}
           revision-execution-timeout: 10
-          revision-secrets: |
-            TELEGRAM_TOKEN=tg_api/latest/tg_token
-            SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
