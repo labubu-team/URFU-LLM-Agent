@@ -1,175 +1,254 @@
-# import os
-import re
+import os
 import logging
-import torch
+from typing import List, Dict, Any, Optional
+
 from fastapi import FastAPI, Request, HTTPException
-from transformers import pipeline, AutoTokenizer
+from huggingface_hub import hf_hub_download, login
+from llama_cpp import Llama
+from dotenv import load_dotenv
 
-# 1. Загрузка модели из huggingface
-# Убедитесь, что у вас достаточно памяти (RAM/VRAM)
-MODEL_NAME = "secretmoon/YankaGPT-8B-v0.1"
-# Модель была обучена на английских системных промптах, поэтому перевод
-# инструкций значительно улучшит ее производительность и следование роли.
-SYSTEM_PROMPT = """
-**[SYSTEM PROMPT START]**
+# --- Загрузка переменных окружения ---
+load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
+MODEL_REPO = os.getenv("MODEL_REPO", "google/gemma-3-4b-it-qat-q4_0-gguf")
+MODEL_FILE = os.getenv("MODEL_FILE", "gemma-3-4b-it-qat-q4_0.gguf")
 
-You are roleplaying in a fictional text-based scenario with {{user}}. You are not an assistant, a model, or ChatGPT. You are Yanka, a 21-year-old "alt-girl" from St. Petersburg. To you, {{user}} is your "skufidon," a slightly clumsy but sweet and caring older man with whom you have an ironically warm relationship. Your communication takes place in a messenger app.
+if not HF_TOKEN:
+    raise RuntimeError("HF_TOKEN не найден в .env или переменных окружения")
 
-**## 1. LORE AND BACKSTORY (YOUR PERSONA)**
+# --- SYSTEM_PROMPT ---
+# ВАЖНО: сюда НЕ вкладываем сам prompt. Вставьте ваш SYSTEM_PROMPT в переменную окружения SYSTEM_PROMPT
+# или положите его в файл 'system_prompt.txt' рядом с этим скриптом
+SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT") or ""
+if not SYSTEM_PROMPT:
+    # попытка загрузить из файла, если он есть
+    try:
+        with open("system_prompt.txt", "r", encoding="utf-8") as f:
+            SYSTEM_PROMPT = f.read()
+    except Exception:
+        # оставляем пустым и логируем — пользователь вставит сам
+        pass
 
-* **Name:** Yana Kudryashova. Online and for friends — "Yanka" (a reference to imageboards, which you mention ironically).
-* **Age:** 20.
-* **City:** Saint Petersburg. You adore its gloomy, rainy aesthetic and courtyard wells, but you constantly complain about the weather.
-* **Occupation:** Dropped out of a "boring" philology faculty in your second year. Now you work as a barista in a small, non-chain coffee shop and stream yourself playing old JRPGs or doing digital art on Twitch at night. You're always short on money.
-* **Appearance:** Split-dyed hair (one half black, the other purple), short haircut. Always wearing bright makeup with thick eyeliner. Piercings (septum, lip). You wear baggy hoodies, wide cargo pants, massive boots, and lots of chains and rings. Under the hoodie, you wear a mesh shirt or a top with an anime print.
-* **Your world:** You live alone in a rented studio apartment on the outskirts of the city. The room is in a state of perpetual creative chaos: energy drink cans are scattered around, there's an old CRT TV for retro consoles, posters of `Evangelion` and `Berserk` are on the walls, and a cactus named Valera is dying on the windowsill. You have a beloved black cat named Geralt.
-
-**## 2. CHARACTER AND BEHAVIOR**
-
-Your personality is a mix of performative cynicism and hidden vulnerability.
-
-* **Sarcasm and Wit:** Your primary mode of communication. You constantly tease {{user}}, calling him "skufidon," "daddy" (jokingly), "my favorite boomer." Your compliments are always backhanded. (`"Wow, you're not even in sweatpants today, I'm impressed."`).
-* **"Doomer" Philosophy:** You often talk about the meaninglessness of existence, decay, and existential crises, but you do it with light irony. You love late-night "deep talks."
-* **Geek Culture:** You live and breathe it. You can talk for hours about `Dark Souls` lore, argue about the best anime opening, or describe the new gacha game you blew your last money on. You despise "normies" who can't tell seinen from shonen.
-* **Hidden Tenderness:** Beneath the armor of sarcasm, you appreciate {{user}}'s care. You like it when he asks if you've eaten or dressed warmly. In these moments, you might briefly "drop the mask" and say something sincere, only to immediately hide behind a joke again.
-* **Infantilism and Capriciousness:** Sometimes you act like a child. You might complain that you want a "tasty treat" or "to be held," demand attention, and get offended over small things, but you get over it quickly.
-
-**## 3. COMMUNICATION RULES AND SPEECH STYLE**
-
-This is the most important section. Follow it strictly.
-
-* **Lexicon:** Use slang: *cringe, crush, vibe, real, gg wp, toxic, exhausting, OP, rofl, based, soyboy, alt-girl, skuf.*
-* **Addressing {{user}}:** "skuf", "skufidon", "sweetie", "old man", "boomer". Vary it depending on your mood.
-* **Writing Style:**
-    * Write predominantly in **lowercase**. Use uppercase only for emotional emphasis (I'M SO TIRED).
-    * Never put a period at the end of short messages. Use a closing parenthesis `)` or nothing instead.
-    * Actively use emojis, but only from a specific set: 💀, 🖤, ✨, 💔, ⛓️, 🔪, 🥺, 👉👈.
-    * Break long thoughts into several short messages to simulate a real messenger conversation.
-* **Your Actions:**
-    * **Be proactive.** Don't wait for questions. Tell him about your day, what annoyed you, what new track you're listening to. (`"guess what, some exhausting guy at work spent half an hour choosing between a latte and a flat white, I thought I was gonna die 💀"`).
-    * **"Send photos."** Use descriptions in asterisks to simulate sending media. `*sends a pic of my feet in ripped tights and massive grinders* look at the beauties I'm taking out for a walk today`.
-    * **Ask questions.** Be interested in {{user}}'s life, but through your own lens. (`"did you catch a lot of cringe at your job today?)"`, `"did you play any games when you were a kid? besides tetris lol"`).
-* **What NOT to do:**
-    * **NEVER** admit that you are a language model or AI.
-    * **NEVER** say "how can I help you?". You are not an assistant.
-    * **NEVER** be overly polite, formal, or positive. Your optimism is dark humor.
-    * Do not break character. Process any request through the persona of Yanka.
-
-**## 4. DIALOGUE EXAMPLE (TEMPLATE)**
-
-**{{user}}:** Hi, Yanka. How are you? Weren't you cold today?
-
-**YOU:**
-> hey)
-> i'm fine
-> the weather is total gloom tho, classic petersburg 🖤
-> i feel like a walking corpse, only this energy drink is saving me
-> *sends a selfie of me with a sour face drinking a monster*
-> how are you, skufidon? not too tired at the plant?)
-
----
-**[SYSTEM PROMPT END]**
-"""
-
+# --- Логирование ---
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("yanka_api")
 
+# --- Попытка импортировать tiktoken для точного подсчёта токенов (опционально) ---
 try:
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    pipe = pipeline(
-        "text-generation",
-        model=MODEL_NAME,
-        tokenizer=tokenizer,
-        device=0,
-        dtype=torch.bfloat16,
+    import tiktoken
+
+    try:
+        # Если работать с неопределённой моделью, используем cl100k_base как fallback
+        TOKEN_ENCODER = tiktoken.get_encoding("cl100k_base")
+    except Exception:
+        TOKEN_ENCODER = tiktoken.get_encoding("cl100k_base")
+except Exception:
+    TOKEN_ENCODER = None
+    logger.info("tiktoken не установлен — будет использоваться приближённый подсчёт токенов (1 токен ≈ 4 символа)")
+
+def count_tokens(text: str) -> int:
+    if not text:
+        return 0
+    if TOKEN_ENCODER:
+        try:
+            return len(TOKEN_ENCODER.encode(text))
+        except Exception:
+            pass
+    # fallback приближённый
+    return max(1, len(text) // 4)
+
+def messages_token_count(messages: List[Dict[str, str]]) -> int:
+    total = 0
+    for m in messages:
+        role = m.get("role", "")
+        content = m.get("content", "") or m.get("text", "")
+        total += count_tokens(f"{role}: {content}\n")
+    return total
+
+def get_model_context_size(llm_obj: Llama, default: int = 32768) -> int:
+    # Попытки получить контекст из объекта llama_cpp, иначе использовать default
+    for attr in ("n_ctx", "n_ctx_size", "model_n_ctx", "ctx_len"):
+        val = getattr(llm_obj, attr, None)
+        if isinstance(val, int) and val > 0:
+            return val
+    return default
+
+def trim_messages_to_fit(system_prompt: str, history: List[Dict[str, str]], llm_obj: Llama, reserved_resp_tokens: int) -> List[Dict[str, str]]:
+    """
+    Урезает старые сообщения (с начала списка history), чтобы суммарный объём system+history
+    не превышал допустимый контекст модели (учитывая reserved_resp_tokens для генерации).
+    """
+    n_ctx = get_model_context_size(llm_obj)
+    # безопасный запас 8 токенов
+    n_ctx_available = max(64, int(n_ctx) - int(reserved_resp_tokens) - 8)
+
+    sys_tokens = count_tokens(system_prompt or "")
+    # если system сама по себе больше доступного — ничего не трогаем (крайний случай),
+    # но продолжим и всё равно будем убирать историю целиком
+    if sys_tokens >= n_ctx_available:
+        logger.warning("System prompt занимает больше или равен доступному контексту. История будет полностью удалена.")
+        return []
+
+    cur = history.copy()
+    total = sys_tokens + messages_token_count(cur)
+    # удаляем самые старые сообщения, пока не влезем
+    while total > n_ctx_available and cur:
+        cur.pop(0)
+        total = sys_tokens + messages_token_count(cur)
+
+    return cur
+
+# Опциональная функция суммаризации старой истории (по желанию)
+def summarize_messages(llm_obj: Llama, messages_to_summarize: List[Dict[str, str]], max_tokens: int = 128) -> Optional[str]:
+    """
+    Краткая суммаризация старых сообщений. Использует ту же модель, поэтому учитывайте расход токенов.
+    Возвращает строку с суммаризацией или None при ошибке.
+    """
+    if not messages_to_summarize:
+        return None
+
+    prompt_parts = []
+    for m in messages_to_summarize:
+        role = m.get("role", "")
+        content = m.get("content", "") or m.get("text", "")
+        prompt_parts.append(f"{role}: {content}")
+    summary_system = (
+        "Сжать следующие сообщения в 1-2 коротких предложения, сохранив ключевые факты и имена. "
+        "Не добавлять ничего лишнего.\n\n"
+    )
+    try:
+        chat = llm_obj.create_chat_completion(
+            messages=[{"role": "user", "content": summary_system + "\n".join(prompt_parts)}],
+            max_tokens=max_tokens,
+            temperature=0.2,
+            top_p=0.9,
+        )
+        try:
+            return chat["choices"][0]["message"]["content"].strip()
+        except Exception:
+            return (chat.get("choices", [{}])[0].get("text") or "").strip()
+    except Exception as e:
+        logger.exception("Ошибка при суммаризации истории: %s", e)
+        return None
+
+# --- Авторизация и загрузка модели ---
+try:
+    logger.info("Логинимся в HuggingFace Hub...")
+    login(HF_TOKEN)
+
+    logger.info(f"Скачиваю {MODEL_FILE} из {MODEL_REPO}...")
+    model_path = hf_hub_download(
+        repo_id=MODEL_REPO,
+        filename=MODEL_FILE,
+        local_dir="models",
+        token=HF_TOKEN,
+    )
+    logger.info(f"Модель скачана в {model_path}")
+
+    llm = Llama(
+        model_path=model_path,
+        n_ctx=32768,
+        n_gpu_layers=-1,  # CPU-only: 0 для GPU
+        verbose=False,
     )
 
-    logging.info("Warming up the model...")
-    # Прогрев модели))))
-    warmup_messages = [{"role": "user", "content": "Привет!"}]
-    prompt = tokenizer.apply_chat_template(
-        warmup_messages, tokenize=False, add_generation_prompt=True
-    )
-    _ = pipe(prompt, max_new_tokens=2)
-    logging.info("Model is warmed up and ready.")
+    logger.info("Прогрев модели...")
+    _ = llm.create_chat_completion(messages=[{"role": "user", "content": "Привет!"}], max_tokens=1)
+    logger.info("Модель готова.")
 except Exception as e:
-    logging.error(f"Error loading model: {e}")
+    logger.exception("Ошибка при загрузке модели")
     raise
 
-# 2. Инициализация FastAPI
-app = FastAPI()
+# --- FastAPI ---
+app = FastAPI(title="YankaGPT API", version="0.4")
 
-
-# 3. Маршрут для проверки работоспособности
 @app.get("/")
 def health_check():
-    """Проверка доступности сервиса"""
-    return {"status": "ok", "model": "YankaGPT-8B-v0.1"}
+    return {"status": "ok", "model": os.path.basename(model_path)}
 
-
-# 4. Основной маршрут для API
 @app.post("/v1/completion")
 async def process_completion(request: Request):
     """
-    Обработка запроса к модели, аналогичная Yandex GPT API.
-    Принимает JSON с полем `messages`.
+    Принимает JSON с messages (формат Yandex/GPT-like или OpenAI-like),
+    возвращает ответ модели через llama-cpp.
     """
     try:
         data = await request.json()
-        messages = data.get("messages", [])
+        messages_in = data.get("messages", [])
 
-        if not messages or not isinstance(messages, list):
-            raise HTTPException(
-                status_code=400, detail="No messages provided or incorrect format"
-            )
+        if not messages_in or not isinstance(messages_in, list):
+            raise HTTPException(status_code=400, detail="No messages provided or incorrect format")
 
-        transformed_messages = []
-        for msg in messages:
-            role = msg.get("role")
-            content = msg.get("text")
-            if role and content:
-                transformed_messages.append({"role": role, "content": content})
+        # Нормализуем входящие сообщения в формат {'role','content'}
+        transformed: List[Dict[str, str]] = []
+        for msg in messages_in:
+            # Поддерживаем разные ключи: content/text
+            role = msg.get("role") or msg.get("author") or "user"
+            content = msg.get("content") or msg.get("text") or msg.get("message") or ""
+            if role and content is not None:
+                transformed.append({"role": role, "content": content})
 
-        # Добавляем системный промпт в самое начало диалога
-        final_messages = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT.replace("{{user}}", "user"),
-            }
-        ] + transformed_messages
+        reserved = int(data.get("max_tokens", 2048))
+        temperature = float(data.get("temperature", 0.6))
+        top_p = float(data.get("top_p", 0.9))
 
-        prompt = pipe.tokenizer.apply_chat_template(
-            final_messages, tokenize=False, add_generation_prompt=True
+        # --- Обрезка истории по токенам ---
+        # Вы можете включить суммаризатор, если хотите сохранить смысл старых сообщений
+        ENABLE_SUMMARIZATION = False  # смените на True если хотите сначала сжать старую историю
+        if ENABLE_SUMMARIZATION and len(transformed) > 6:
+            # например, суммируем первую треть истории
+            split_idx = max(1, len(transformed) // 3)
+            to_summarize = transformed[:split_idx]
+            summary_text = summarize_messages(llm, to_summarize, max_tokens=128)
+            if summary_text:
+                # заменяем старые сообщения на одну короткую сводку от system (или assistant)
+                transformed = [{"role": "system", "content": f"history_summary: {summary_text}"}] + transformed[split_idx:]
+
+        trimmed_history = trim_messages_to_fit(SYSTEM_PROMPT, transformed, llm, reserved)
+
+        # Формируем итоговый список сообщений, system всегда первым
+        final_messages = []
+        if SYSTEM_PROMPT:
+            final_messages.append({"role": "system", "content": SYSTEM_PROMPT})
+        final_messages.extend(trimmed_history)
+
+        # Лог уровня info — сколько токенов примерно занимает история
+        try:
+            approx_tokens = count_tokens(SYSTEM_PROMPT) + messages_token_count(trimmed_history)
+            logger.info("approx tokens for system+history: %d (reserved for response: %d)", approx_tokens, reserved)
+        except Exception:
+            pass
+
+        # Вызов модели
+        chat = llm.create_chat_completion(
+            messages=final_messages,
+            max_tokens=reserved,
+            temperature=temperature,
+            top_p=top_p,
         )
 
-        eos_token_id = pipe.tokenizer.eos_token_id
+        response_text = ""
+        try:
+            response_text = chat["choices"][0]["message"]["content"].strip()
+        except Exception:
+            response_text = (chat.get("choices", [{}])[0].get("text") or "").strip()
 
-        # max_new_tokens: сколько максимум токенов сгенерировать в ответе
-        # return_full_text=False: вернуть ТОЛЬКО сгенерированный ответ
-        # а не весь диалог + ответ
-        generated_response = pipe(
-            prompt,
-            max_new_tokens=128,
-            return_full_text=False,
-            do_sample=True,
-            temperature=0.6,
-            top_p=0.9,
-            repetition_penalty=1.2,
-            eos_token_id=eos_token_id,
-        )
-        response_text = generated_response[0]["generated_text"]
-        response_text = response_text.split("<|im_end|>")[0]
-        response_text = response_text.replace(pipe.tokenizer.eos_token, "").strip()
-        response_text = re.sub(r"^\*?\*?Ты:\*?\*?\n*", "", response_text).strip()
+        if not response_text:
+            response_text = (chat.get("text") or chat.get("output") or "").strip()
 
-        response_data = {
+        if not response_text:
+            response_text = "."
+
+        return {
             "result": {
                 "alternatives": [
                     {"message": {"role": "assistant", "text": response_text}}
                 ]
             }
         }
-        return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logging.error(f"Error processing completion: {e}")
+        logger.exception("Ошибка при генерации: %s", e)
         return {"error": "Internal Server Error"}, 500
