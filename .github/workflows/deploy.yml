@@ -59,15 +59,20 @@ jobs:
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
 
-      # - name: YC Docker Auth
-      #   run: |
-      #     curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-      #     source "/home/runner/.bashrc" && \
-      #     yc config profile create test && \
-      #     yc config set folder-id ${{ secrets.YC_FOLDER }} && \
-      #     yc config set organization-id ${{ secrets.YC_ORG_ID }} && \
-      #     yc config list && \
-      #     yc container registry configure-docker
+      - name: Deploy Serverless Container
+        id: deploy-sls-container
+        uses: yc-actions/yc-sls-container-deploy@v4
+        with:
+          yc-sa-id: ${{ secrets.SA_ID }}
+          container-name: tgbot
+          folder-id: ${{ secrets.YC_FOLDER }}
+          revision-service-account-id: ${{ secrets.SA_ID }}
+          revision-cores: 1
+          revision-memory: 1024Mb
+          revision-core-fraction: 20
+          revision-concurrency: 8
+          revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-tgbot:${{ github.run_number }}
+          revision-execution-timeout: 10
 
 
   build-and-push_rag:
