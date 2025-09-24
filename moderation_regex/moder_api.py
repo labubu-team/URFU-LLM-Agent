@@ -1,4 +1,6 @@
 # moder_api.py
+import os
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 
@@ -24,6 +26,13 @@ def root():
         "message": 'Moderation patterns API. POST /detect with JSON {"text": "..."}'
     }
 
+@app.get("/healthz")
+def healthz():
+    try:
+        _ = bool(detect_injection(""))
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/detect", response_model=DetectOut)
 def detect(payload: TextIn):
@@ -36,6 +45,10 @@ def detect(payload: TextIn):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Удобная команда запуска (или используйте uvicorn из CLI)
 if __name__ == "__main__":
-    uvicorn.run("moder_api:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "moder_api:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8002")),
+        reload=bool(int(os.getenv("RELOAD", "0"))),
+    )
