@@ -19,7 +19,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN uv sync --group moder-nlp --no-cache --frozen
 
 # Копируем исходный код приложения
-COPY ./main.py .
+COPY ./orchestrator .
 
 # Указываем порт
 EXPOSE 8000
