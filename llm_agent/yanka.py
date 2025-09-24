@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 
 from fastapi import FastAPI, Request, HTTPException
 from huggingface_hub import hf_hub_download, login
@@ -44,7 +44,10 @@ try:
         TOKEN_ENCODER = tiktoken.get_encoding("cl100k_base")
 except Exception:
     TOKEN_ENCODER = None
-    logger.info("tiktoken не установлен — будет использоваться приближённый подсчёт токенов (1 токен ≈ 4 символа)")
+    logger.info(
+        "tiktoken не установлен — будет использоваться приближённый подсчёт токенов (1 токен ≈ 4 символа)"
+    )
+
 
 def count_tokens(text: str) -> int:
     if not text:
@@ -57,6 +60,7 @@ def count_tokens(text: str) -> int:
     # fallback приближённый
     return max(1, len(text) // 4)
 
+
 def messages_token_count(messages: List[Dict[str, str]]) -> int:
     total = 0
     for m in messages:
@@ -64,6 +68,7 @@ def messages_token_count(messages: List[Dict[str, str]]) -> int:
         content = m.get("content", "") or m.get("text", "")
         total += count_tokens(f"{role}: {content}\n")
     return total
+
 
 def get_model_context_size(llm_obj: Llama, default: int = 32768) -> int:
     # Попытки получить контекст из объекта llama_cpp, иначе использовать default
@@ -73,7 +78,13 @@ def get_model_context_size(llm_obj: Llama, default: int = 32768) -> int:
             return val
     return default
 
-def trim_messages_to_fit(system_prompt: str, history: List[Dict[str, str]], llm_obj: Llama, reserved_resp_tokens: int) -> List[Dict[str, str]]:
+
+def trim_messages_to_fit(
+    system_prompt: str,
+    history: List[Dict[str, str]],
+    llm_obj: Llama,
+    reserved_resp_tokens: int,
+) -> List[Dict[str, str]]:
     """
     Урезает старые сообщения (с начала списка history), чтобы суммарный объём system+history
     не превышал допустимый контекст модели (учитывая reserved_resp_tokens для генерации).
@@ -86,7 +97,9 @@ def trim_messages_to_fit(system_prompt: str, history: List[Dict[str, str]], llm_
     # если system сама по себе больше доступного — ничего не трогаем (крайний случай),
     # но продолжим и всё равно будем убирать историю целиком
     if sys_tokens >= n_ctx_available:
-        logger.warning("System prompt занимает больше или равен доступному контексту. История будет полностью удалена.")
+        logger.warning(
+            "System prompt занимает больше или равен доступному контексту. История будет полностью удалена."
+        )
         return []
 
     cur = history.copy()
@@ -98,8 +111,11 @@ def trim_messages_to_fit(system_prompt: str, history: List[Dict[str, str]], llm_
 
     return cur
 
+
 # Опциональная функция суммаризации старой истории (по желанию)
-def summarize_messages(llm_obj: Llama, messages_to_summarize: List[Dict[str, str]], max_tokens: int = 128) -> Optional[str]:
+def summarize_messages(
+    llm_obj: Llama, messages_to_summarize: List[Dict[str, str]], max_tokens: int = 128
+) -> Optional[str]:
     """
     Краткая суммаризация старых сообщений. Использует ту же модель, поэтому учитывайте расход токенов.
     Возвращает строку с суммаризацией или None при ошибке.
@@ -118,7 +134,9 @@ def summarize_messages(llm_obj: Llama, messages_to_summarize: List[Dict[str, str
     )
     try:
         chat = llm_obj.create_chat_completion(
-            messages=[{"role": "user", "content": summary_system + "\n".join(prompt_parts)}],
+            messages=[
+                {"role": "user", "content": summary_system + "\n".join(prompt_parts)}
+            ],
             max_tokens=max_tokens,
             temperature=0.2,
             top_p=0.9,
@@ -130,6 +148,7 @@ def summarize_messages(llm_obj: Llama, messages_to_summarize: List[Dict[str, str
     except Exception as e:
         logger.exception("Ошибка при суммаризации истории: %s", e)
         return None
+
 
 # --- Авторизация и загрузка модели ---
 try:
@@ -153,18 +172,22 @@ try:
     )
 
     logger.info("Прогрев модели...")
-    _ = llm.create_chat_completion(messages=[{"role": "user", "content": "Привет!"}], max_tokens=1)
+    _ = llm.create_chat_completion(
+        messages=[{"role": "user", "content": "Привет!"}], max_tokens=1
+    )
     logger.info("Модель готова.")
-except Exception as e:
+except Exception:
     logger.exception("Ошибка при загрузке модели")
     raise
 
 # --- FastAPI ---
 app = FastAPI(title="YankaGPT API", version="0.4")
 
+
 @app.get("/")
 def health_check():
     return {"status": "ok", "model": os.path.basename(model_path)}
+
 
 @app.post("/v1/completion")
 async def process_completion(request: Request):
@@ -177,7 +200,9 @@ async def process_completion(request: Request):
         messages_in = data.get("messages", [])
 
         if not messages_in or not isinstance(messages_in, list):
-            raise HTTPException(status_code=400, detail="No messages provided or incorrect format")
+            raise HTTPException(
+                status_code=400, detail="No messages provided or incorrect format"
+            )
 
         # Нормализуем входящие сообщения в формат {'role','content'}
         transformed: List[Dict[str, str]] = []
@@ -194,7 +219,9 @@ async def process_completion(request: Request):
 
         # --- Обрезка истории по токенам ---
         # Вы можете включить суммаризатор, если хотите сохранить смысл старых сообщений
-        ENABLE_SUMMARIZATION = False  # смените на True если хотите сначала сжать старую историю
+        ENABLE_SUMMARIZATION = (
+            False  # смените на True если хотите сначала сжать старую историю
+        )
         if ENABLE_SUMMARIZATION and len(transformed) > 6:
             # например, суммируем первую треть истории
             split_idx = max(1, len(transformed) // 3)
@@ -202,9 +229,13 @@ async def process_completion(request: Request):
             summary_text = summarize_messages(llm, to_summarize, max_tokens=128)
             if summary_text:
                 # заменяем старые сообщения на одну короткую сводку от system (или assistant)
-                transformed = [{"role": "system", "content": f"history_summary: {summary_text}"}] + transformed[split_idx:]
+                transformed = [
+                    {"role": "system", "content": f"history_summary: {summary_text}"}
+                ] + transformed[split_idx:]
 
-        trimmed_history = trim_messages_to_fit(SYSTEM_PROMPT, transformed, llm, reserved)
+        trimmed_history = trim_messages_to_fit(
+            SYSTEM_PROMPT, transformed, llm, reserved
+        )
 
         # Формируем итоговый список сообщений, system всегда первым
         final_messages = []
@@ -214,8 +245,14 @@ async def process_completion(request: Request):
 
         # Лог уровня info — сколько токенов примерно занимает история
         try:
-            approx_tokens = count_tokens(SYSTEM_PROMPT) + messages_token_count(trimmed_history)
-            logger.info("approx tokens for system+history: %d (reserved for response: %d)", approx_tokens, reserved)
+            approx_tokens = count_tokens(SYSTEM_PROMPT) + messages_token_count(
+                trimmed_history
+            )
+            logger.info(
+                "approx tokens for system+history: %d (reserved for response: %d)",
+                approx_tokens,
+                reserved,
+            )
         except Exception:
             pass
 
