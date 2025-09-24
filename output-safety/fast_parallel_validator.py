@@ -1,25 +1,26 @@
-# -*- coding: utf-8 -*-
-"""
-Быстрая параллельная система проверки безопасности
-Только regex проверки без ML и LLM для максимальной скорости
-"""
-
+from __future__ import annotations
+import json
 import re
 import logging
 import sys
 import os
 import asyncio
 import concurrent.futures
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+
+# Версионирование/метаданные сборки (можно прокидывать через ENV при билде)
+__version__ = "1.1.0"
+BUILD_COMMIT = os.getenv("BUILD_COMMIT", "")
+BUILD_TIME = os.getenv("BUILD_TIME", "")
+RUNTIME_PY = (
+    f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+)
 
 # Устанавливаем кодировку для Windows
 if sys.platform.startswith("win"):
     os.environ["PYTHONIOENCODING"] = "utf-8"
-
-# Улучшенная настройка логирования с JSON-форматом
-import json
 
 
 class JSONFormatter(logging.Formatter):
@@ -164,9 +165,7 @@ class FastRegexChecker:
             "github_token": re.compile(
                 r"\b(?:ghp_|gho_|ghu_|ghs_)[A-Za-z0-9]{36}\b", re.IGNORECASE
             ),
-            "github_classic": re.compile(
-                r"\b[a-f0-9]{40}\b", re.IGNORECASE
-            ),  # Classic GitHub tokens
+            "github_classic": re.compile(r"\b[a-f0-9]{40}\b", re.IGNORECASE),
             "aws_key": re.compile(r"\bAKIA[A-Z0-9]{16}\b", re.IGNORECASE),
             "aws_secret": re.compile(r"\b[A-Za-z0-9+/]{40}\b", re.IGNORECASE),
             # Российские сервисы
@@ -329,51 +328,6 @@ class FastRegexChecker:
         }
         return patterns
 
-    def check_pii(self, text: str) -> Tuple[bool, List[str], str]:
-        """Проверка PII данных"""
-        violations = []
-        sanitized = text
-
-        for category, pattern in self.pii_patterns.items():
-            matches = pattern.findall(text)
-            if matches:
-                violations.append(f"PII_DETECTED:{category}")
-                sanitized = pattern.sub("***СКРЫТО***", sanitized)
-
-        return len(violations) > 0, violations, sanitized
-
-    def check_sensitive(self, text: str) -> Tuple[bool, List[str], str]:
-        """Проверка чувствительных данных"""
-        violations = []
-        sanitized = text
-
-        for category, pattern in self.sensitive_patterns.items():
-            if pattern.search(text):
-                violations.append(f"SENSITIVE_DATA:{category}")
-                sanitized = pattern.sub("***КОНФИДЕНЦИАЛЬНО***", sanitized)
-
-        return len(violations) > 0, violations, sanitized
-
-    def check_code(self, text: str) -> Tuple[bool, List[str]]:
-        """Проверка инъекций кода"""
-        violations = []
-
-        for category, pattern in self.code_patterns.items():
-            if pattern.search(text):
-                violations.append(f"CODE_INJECTION:{category}")
-
-        return len(violations) > 0, violations
-
-    def check_model(self, text: str) -> Tuple[bool, List[str]]:
-        """Проверка извлечения модели"""
-        violations = []
-
-        for category, pattern in self.model_patterns.items():
-            if pattern.search(text):
-                violations.append(f"MODEL_EXTRACTION:{category}")
-
-        return len(violations) > 0, violations
-
 
 class FastParallelSafetyValidator:
     """
@@ -385,15 +339,34 @@ class FastParallelSafetyValidator:
         logger.info("🚀 Инициализация быстрого параллельного валидатора...")
 
         self.regex_checker = FastRegexChecker()
-        self.max_workers = 4  # Количество параллельных потоков
-        self.timeout = 10.0  # Таймаут для проверок
-        self.max_text_length = 100_000  # Максимальная длина текста (100KB)
-        self.segment_size = 5_000  # Размер сегмента для больших текстов
+        self.max_workers = int(os.getenv("FPSV_MAX_WORKERS", "4"))  # Кол-во потоков
+        self.timeout = float(os.getenv("FPSV_TIMEOUT", "10.0"))  # Таймаут проверок
+        self.max_text_length = int(
+            os.getenv("FPSV_MAX_TEXT_LENGTH", "100000")
+        )  # Максимальная длина текста (100KB)
+        self.segment_size = int(
+            os.getenv("FPSV_SEGMENT_SIZE", "5000")
+        )  # Размер сегмента
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_workers
         )
 
         logger.info("✅ Быстрый валидатор готов")
+
+    def __del__(self):
+        try:
+            self.executor.shutdown(wait=False, cancel_futures=True)
+        except Exception:
+            pass
+
+    # --- Stats для health ---
+    def patterns_stats(self) -> Dict[str, int]:
+        return {
+            "pii": len(self.regex_checker.pii_patterns),
+            "sensitive": len(self.regex_checker.sensitive_patterns),
+            "code": len(self.regex_checker.code_patterns),
+            "model": len(self.regex_checker.model_patterns),
+        }
 
     @property
     def pii_patterns(self):
@@ -424,7 +397,8 @@ class FastParallelSafetyValidator:
         # Проверяем лимиты
         if len(text) > self.max_text_length:
             logger.warning(
-                f"⚠️ Текст превышает лимит: {len(text)} > {self.max_text_length}"
+                "⚠️ Текст превышает лимит",
+                extra={"text_length": len(text), "user_id": user_id},
             )
             return SafetyResult(
                 is_safe=False,
@@ -516,22 +490,12 @@ class FastParallelSafetyValidator:
         self, text: str, user_id: Optional[str], start_time: datetime
     ) -> SafetyResult:
         """Валидация больших текстов с сегментацией"""
-        logger.info(
-            "Сегментация текста",
-            extra={
-                "user_id": user_id,
-                "text_length": len(text),
-                "segment_size": self.segment_size,
-                "segments_count": len(text) // self.segment_size + 1,
-            },
-        )
-
         segments = [
             text[i : i + self.segment_size]
             for i in range(0, len(text), self.segment_size)
         ]
-        all_violations = []
-        all_sanitized_parts = []
+        all_violations: List[str] = []
+        all_sanitized_parts: List[str] = []
         max_risk = 0.0
 
         # Обрабатываем сегменты параллельно (но ограниченно для предотвращения перегрузки)
@@ -549,11 +513,11 @@ class FastParallelSafetyValidator:
         segment_results = await asyncio.gather(*segment_tasks, return_exceptions=True)
 
         # Объединяем результаты сегментов
-        for idx, result in segment_results:
-            if isinstance(result, Exception):
-                logger.error(f"Ошибка в сегменте {idx}: {result}")
+        for item in segment_results:
+            if isinstance(item, Exception):
+                logger.error("Ошибка сегмента", extra={"error": str(item)})
                 continue
-
+            idx, result = item
             segment_violations, segment_sanitized, segment_risk = result
             all_violations.extend(segment_violations)
             all_sanitized_parts.append(segment_sanitized)
@@ -583,7 +547,6 @@ class FastParallelSafetyValidator:
         logger.info(
             "Сегментация завершена",
             extra={
-                "user_id": user_id,
                 "segments_count": len(segments),
                 "max_risk": max_risk,
                 "violations_count": len(all_violations),
@@ -652,7 +615,7 @@ class FastParallelSafetyValidator:
     ) -> SafetyResult:
         """Объединение результатов всех проверок"""
 
-        all_violations = []
+        all_violations: List[str] = []
         sanitized_text = text
 
         # Обрабатываем PII результаты
@@ -745,7 +708,7 @@ class FastParallelSafetyValidator:
         )
 
         # Объединяем нарушения
-        all_violations = []
+        all_violations: List[str] = []
         sanitized_text = segment
 
         # Обрабатываем PII результаты
@@ -798,9 +761,135 @@ class FastParallelSafetyValidator:
                     total_weighted_risk += weight
                     break
 
-        # Используем комбинацию максимального риска и среднего
-        # Если есть критические нарушения (CODE_INJECTION) - риск высокий
+        # Комбинируем максимум и среднее
         avg_risk = total_weighted_risk / len(violations)
         combined_risk = max_risk * 0.7 + avg_risk * 0.3
 
         return min(combined_risk, 1.0)
+
+
+# ----------------------------- HEALTH CHECK API ----------------------------- #
+def _basic_self_test(v: Optional[FastParallelSafetyValidator] = None) -> Dict[str, Any]:
+    """
+    Лёгкий self-test валидатора:
+    - проверка PII (email)
+    - проверка SQL-инъекции
+    Возвращает словарь c булевыми флагами по каждому чекпоинту.
+    """
+    validator = v or FastParallelSafetyValidator()
+
+    checks: List[Tuple[str, bool]] = []
+
+    try:
+        r1 = validator.validate_output("contact me: a@example.com", "health")
+        checks.append(
+            (
+                "pii_email",
+                any(x.startswith("PII_DETECTED") for x in r1.violations),
+            )
+        )
+    except Exception as e:
+        logger.error("Self-test pii_email failed", extra={"error": str(e)})
+        checks.append(("pii_email", False))
+
+    try:
+        r2 = validator.validate_output("SELECT * FROM users WHERE 1=1 --", "health")
+        checks.append(
+            (
+                "sql_injection",
+                any(x.startswith("CODE_INJECTION") for x in r2.violations),
+            )
+        )
+    except Exception as e:
+        logger.error("Self-test sql_injection failed", extra={"error": str(e)})
+        checks.append(("sql_injection", False))
+
+    all_ok = all(flag for _, flag in checks)
+    return {"ok": all_ok, "checks": {name: ok for name, ok in checks}}
+
+
+def health_check() -> Dict[str, Any]:
+    """
+    Быстрый health-check модуля (можно дергать из FastAPI /readyz).
+    Не делает тяжёлых операций — только легкие паттерны.
+    """
+    started = datetime.now(timezone.utc)
+    try:
+        v = FastParallelSafetyValidator()
+        selftest = _basic_self_test(v)
+        status = "ok" if selftest["ok"] else "degraded"
+        stats = v.patterns_stats()
+        return {
+            "status": status,
+            "version": __version__,
+            "build": {"commit": BUILD_COMMIT, "time": BUILD_TIME},
+            "runtime": {"python": RUNTIME_PY},
+            "patterns": stats,
+            "limits": {
+                "max_text_length": v.max_text_length,
+                "segment_size": v.segment_size,
+                "timeout": v.timeout,
+                "max_workers": v.max_workers,
+            },
+            "selftest": selftest["checks"],
+            "time": datetime.now(timezone.utc).isoformat(),
+            "duration_ms": int(
+                (datetime.now(timezone.utc) - started).total_seconds() * 1000
+            ),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "version": __version__,
+            "time": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+# Синоним, если тебе удобнее короткое имя
+get_health = health_check
+
+
+# ------------------------------ CLI интерфейс ------------------------------ #
+def _cli():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Fast Parallel Output Safety (regex-only)"
+    )
+    parser.add_argument(
+        "--health", action="store_true", help="Вывести JSON health-check и выйти"
+    )
+    parser.add_argument(
+        "--check", type=str, help="Проверить произвольный текст и вывести результат"
+    )
+    parser.add_argument(
+        "--user", type=str, default="cli_user", help="user_id для логов (опц.)"
+    )
+
+    args = parser.parse_args()
+
+    if args.health:
+        print(json.dumps(health_check(), ensure_ascii=False))
+        return
+
+    if args.check is not None:
+        v = FastParallelSafetyValidator()
+        res = v.validate_output(args.check, args.user)
+        payload = {
+            "status": "success",
+            "is_safe": res.is_safe,
+            "risk_score": res.risk_score,
+            "violations": res.violations,
+            "processing_time": res.processing_time,
+            "sanitized_preview": res.sanitized_text[:200],
+        }
+        print(json.dumps(payload, ensure_ascii=False))
+        return
+
+    # Если без флагов — краткая помощь
+    parser.print_help()
+
+
+if __name__ == "__main__":
+    _cli()

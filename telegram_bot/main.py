@@ -1,6 +1,5 @@
 import asyncio
 import time
-import jwt
 import json
 import logging
 import os
@@ -121,10 +120,12 @@ class YandexGPTBot:
         try:
             r = requests.post(
                 url,
-                headers={"Content-Type": "application/json",
-                         "x-node-id": "<this>",
-                         "Authorization": "Bearer <IAM_TOKEN>",
-                         "x-folder-id": "<this>"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-node-id": "<this>",
+                    "Authorization": "Bearer <IAM_TOKEN>",
+                    "x-folder-id": "<this>",
+                },
                 json={"messages": [{"role": "user", "text": q}]},
                 timeout=15,
             )

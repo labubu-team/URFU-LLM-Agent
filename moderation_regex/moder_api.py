@@ -26,6 +26,7 @@ def root():
         "message": 'Moderation patterns API. POST /detect with JSON {"text": "..."}'
     }
 
+
 @app.get("/healthz")
 def healthz():
     try:
@@ -33,6 +34,7 @@ def healthz():
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/detect", response_model=DetectOut)
 def detect(payload: TextIn):

@@ -3,7 +3,6 @@ import re
 import logging
 import torch
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse  # ⟵ добавили
 from transformers import pipeline, AutoTokenizer
 
 # 1. Загрузка модели из huggingface
@@ -119,7 +118,9 @@ async def process_completion(request: Request):
         messages = data.get("messages", [])
 
         if not messages or not isinstance(messages, list):
-            raise HTTPException(status_code=400, detail="No messages provided or incorrect format")
+            raise HTTPException(
+                status_code=400, detail="No messages provided or incorrect format"
+            )
 
         transformed_messages = []
         for msg in messages:
@@ -127,7 +128,6 @@ async def process_completion(request: Request):
             content = msg.get("text")
             if role and content:
                 transformed_messages.append({"role": role, "content": content})
-
 
         # Добавляем системный промпт в самое начало диалога
         final_messages = [
@@ -157,9 +157,9 @@ async def process_completion(request: Request):
             eos_token_id=eos_token_id,
         )
         response_text = generated_response[0]["generated_text"]
-        response_text = response_text.split('<|im_end|>')[0]
+        response_text = response_text.split("<|im_end|>")[0]
         response_text = response_text.replace(pipe.tokenizer.eos_token, "").strip()
-        response_text = re.sub(r'^\*?\*?Ты:\*?\*?\n*', '', response_text).strip()
+        response_text = re.sub(r"^\*?\*?Ты:\*?\*?\n*", "", response_text).strip()
 
         response_data = {
             "result": {
