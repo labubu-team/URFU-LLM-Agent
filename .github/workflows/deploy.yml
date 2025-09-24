@@ -245,7 +245,7 @@ jobs:
         uses: yc-actions/yc-sls-container-deploy@v4
         with:
           yc-sa-id: ${{ secrets.SA_ID }}
-          container-name: moderation_regex
+          container-name: moderation-regex
           folder-id: ${{ secrets.YC_FOLDER }}
           revision-service-account-id: ${{ secrets.SA_ID }}
           revision-cores: 1
