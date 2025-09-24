@@ -15,10 +15,85 @@
 # ░░░░░░░░░▄▄▌▌▄▌▌░░░░░░░░░░░░░░░░░░░░▄▄▌▌▄▌▌░░░░░░░░░░░
 
 services:
-#  moder-api:
-#    build: .
-#    ports:
-#      - "8001:8001"
+  orchestrator:
+    build:
+      context: orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - MODERATION_REGEX_URL=http://moderation-regex:8001
+      - MODERATION_NLP_URL=http://moderation-nlp:8002
+      - RAG_URL=http://rag:8004
+      - LLM_AGENT_URL=http://llm-agent:8005
+      - REQUEST_TIMEOUT=30
+      - HEALTH_CHECK_TIMEOUT=5
+      - MAX_RETRIES=3
+      - RETRY_DELAY=1.0
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+    depends_on:
+      - moderation-regex
+      - moderation-nlp
+      - rag
+      - llm-agent
+
+  moderation-regex:
+    build:
+      context: moderation_regex
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  moderation-nlp:
+    build:
+      context: moderation_nlp
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  rag:
+    build:
+      context: rag
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - S3_ENDPOINT=${S3_ENDPOINT:?S3_ENDPOINT is required}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      - S3_BUCKET=${S3_BUCKET:? S3_BUCKET is required}
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  llm-agent:
+    build:
+      context: llm_agent
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
   telegram_bot:
     image: ghcr.io/labubu-team/labubu-tgbot:latest
     pull_policy: always
@@ -34,13 +109,11 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_BUCKET: ${S3_BUCKET:? S3_BUCKET is required}
       # S3_PREFIX: ${S3_PREFIX:?S3_PREFIX is required}
+      ORCHESTRATOR_URL: http://orchestrator:8000
     networks:
       - labubu_net
-  #  rag:
-  #    image: ghcr.io/labubu-team/labubu-rag:latest
-  #    pull_policy: always
-  #    networks:
-  #      - labubu_net
+    depends_on:
+      - orchestrator
 
   output-safety:
     build:
