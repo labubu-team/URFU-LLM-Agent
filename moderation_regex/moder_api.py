@@ -1,10 +1,8 @@
-# moder_api.py
 import os
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
 
-# импортируем ваши функции из moder.py
 from moder import detect_injection, get_detected_pattern
 from pydantic import BaseModel
 
