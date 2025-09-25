@@ -1,13 +1,16 @@
 FROM nvcr.io/nvidia/tritonserver:24.01-py3-sdk
 
+ARG DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_LINK_MODE=copy \
-    PATH="/root/.local/bin:${PATH}"
+    PATH="/root/.local/bin:${PATH}" \
+    TMPDIR=/var/tmp \
+    PIP_INDEX_URL=https://pypi.org/simple \
+    PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu121
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -16,7 +19,8 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --group llm --no-cache --frozen
+RUN --mount=type=cache,target=/root/.cache \
+    uv sync --group llm --frozen
 
 COPY ./llm_agent/ .
 

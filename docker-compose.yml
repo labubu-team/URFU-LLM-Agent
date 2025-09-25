@@ -19,8 +19,6 @@ services:
     build:
       context: .
       dockerfile: orchestrator.Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       - PORT=8000
       - HOST=0.0.0.0
@@ -58,8 +56,6 @@ services:
     build:
       context: .
       dockerfile: moderation_nlp.Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -70,8 +66,6 @@ services:
     build:
       context: .
       dockerfile: rag.Dockerfile
-    ports:
-      - "8004:8004"
     environment:
       - PYTHONUNBUFFERED=1
       - S3_ENDPOINT=${S3_ENDPOINT:?S3_ENDPOINT is required}
@@ -86,8 +80,6 @@ services:
     build:
       context: .
       dockerfile: llm_agent.Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -120,8 +112,6 @@ services:
     build:
       context: .
       dockerfile: output-safety.Dockerfile
-    ports:
-      - "8000:8000"
     networks:
       - labubu_net
     environment:
