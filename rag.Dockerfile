@@ -18,7 +18,7 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync --group rag --no-cache --frozen
 
-COPY ./rag/ .
+COPY rag .
 
 EXPOSE 8000
 

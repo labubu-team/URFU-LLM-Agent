@@ -1,24 +1,135 @@
 import asyncio
+import json
 import logging
 import os
-from typing import Dict, Any, Optional
+import sys
+import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 import aiohttp
+import jwt  # PyJWT
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-import uvicorn
 
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+_DEFAULT = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+}
 
 
-# Модели данных
+class YCJsonFormatter(logging.Formatter):
+    def format(self, rec: logging.LogRecord) -> str:
+        sev = (
+            {"WARNING": "WARN", "CRITICAL": "FATAL"}
+            .get(rec.levelname, rec.levelname)
+            .upper()
+        )
+        payload: Dict[str, Any] = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(rec.created))
+            + f".{int(rec.msecs):03d}Z",
+            "severity": sev,
+            "logger": rec.name,
+            "event": getattr(rec, "event", rec.funcName or "log"),
+            "message": rec.getMessage(),
+        }
+        for k, v in rec.__dict__.items():
+            if k not in _DEFAULT and not k.startswith("_"):
+                payload[k] = v
+        if rec.exc_info:
+            payload["exception"] = self.formatException(rec.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def _setup_logging():
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+    h = logging.StreamHandler(stream=sys.stdout)
+    h.setFormatter(YCJsonFormatter())
+    root.addHandler(h)
+
+
+_setup_logging()
+log = logging.getLogger("app")
+
+
+def jinfo(msg: str, **extra):
+    log.info(msg, extra=extra)
+
+
+def jerror(msg: str, **extra):
+    log.error(msg, extra=extra)
+
+
+# ---------- config ----------
+@dataclass
+class ServiceEndpoint:
+    name: str
+    url: str
+    health_path: str = "/"
+
+
+@dataclass
+class OrchestratorConfig:
+    NODE_ID: str = os.getenv("NODE_ID", "")
+    FOLDER_ID: str = os.getenv("FOLDER_ID", "")
+    SERVICE_ACCOUNT_ID: str = os.getenv("SERVICE_ACCOUNT_ID", "")
+    PUBLIC_KEY: str = os.getenv("PUBLIC_KEY", "")
+    PRIVATE_KEY: str = os.getenv("PRIVATE_KEY", "")
+    KEY_ID: str = os.getenv("KEY_ID", "")
+
+    moderation_regex_url: str = os.getenv(
+        "MODERATION_REGEX_URL", "http://moderation-regex:8000"
+    )
+    moderation_nlp_url: str = os.getenv(
+        "MODERATION_NLP_URL", "http://moderation-nlp:8000"
+    )
+    rag_url: str = os.getenv("RAG_URL", "http://rag:8000")
+    llm_agent_url: str = os.getenv("LLM_AGENT_URL", "http://llm-agent:8000")
+
+    request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "100"))
+    health_check_timeout: int = int(os.getenv("HEALTH_CHECK_TIMEOUT", "5"))
+    max_retries: int = int(os.getenv("MAX_RETRIES", "3"))
+    retry_delay: float = float(os.getenv("RETRY_DELAY", "1.0"))
+
+    @property
+    def services(self) -> list[ServiceEndpoint]:
+        return [
+            ServiceEndpoint("moderation-regex", self.moderation_regex_url, "/"),
+            ServiceEndpoint("moderation-nlp", self.moderation_nlp_url, "/"),
+            ServiceEndpoint("rag", self.rag_url, "/health"),
+            ServiceEndpoint("llm-agent", self.llm_agent_url, "/"),
+        ]
+
+
+config = OrchestratorConfig()
+
+
+# ---------- models ----------
 class ProcessingStatus(str, Enum):
     SUCCESS = "success"
     MODERATION_BLOCKED = "moderation_blocked"
@@ -43,309 +154,279 @@ class HealthCheckResponse(BaseModel):
     services: Dict[str, bool] = Field(default_factory=dict)
 
 
-@dataclass
-class ServiceEndpoint:
-    name: str
-    url: str
-    health_path: str = "/"
+# ---------- shared async HTTP client with retries ----------
+class AsyncHTTP:
+    def __init__(self, request_timeout: int, max_retries: int, retry_delay: float):
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._timeout = aiohttp.ClientTimeout(total=request_timeout)
+        self._max_retries = max_retries
+        self._retry_delay = retry_delay
 
+    async def start(self):
+        if not self._session:
+            self._session = aiohttp.ClientSession(timeout=self._timeout)
 
-class OrchestratorConfig:
-    """Конфигурация оркестратора"""
+    async def close(self):
+        if self._session:
+            await self._session.close()
+            self._session = None
 
-    def __init__(self):
-        # Базовые URL сервисов
-        self.moderation_regex_url = os.getenv(
-            "MODERATION_REGEX_URL", "http://moderation-regex:8000"
-        )
-        self.moderation_nlp_url = os.getenv(
-            "MODERATION_NLP_URL", "http://moderation-nlp:8000"
-        )
-        self.rag_url = os.getenv("RAG_URL", "http://rag:8000")
-        self.llm_agent_url = os.getenv("LLM_AGENT_URL", "http://llm-agent:8000")
-
-        # Таймауты
-        self.request_timeout = int(os.getenv("REQUEST_TIMEOUT", "100"))
-        self.health_check_timeout = int(os.getenv("HEALTH_CHECK_TIMEOUT", "5"))
-
-        # Настройки обработки
-        self.max_retries = int(os.getenv("MAX_RETRIES", "3"))
-        self.retry_delay = float(os.getenv("RETRY_DELAY", "1.0"))
-
-        # Сервисы для проверки здоровья
-        self.services = [
-            ServiceEndpoint("moderation-regex", self.moderation_regex_url, "/"),
-            ServiceEndpoint("moderation-nlp", self.moderation_nlp_url, "/"),
-            ServiceEndpoint("rag", self.rag_url, "/health"),
-            ServiceEndpoint("llm-agent", self.llm_agent_url, "/"),
-        ]
-
-
-class RequestProcessor:
-    """Основной класс для обработки запросов пользователей"""
-
-    def __init__(self, config: OrchestratorConfig):
-        self.config = config
-        self.session: Optional[aiohttp.ClientSession] = None
-
-    async def init_session(self):
-        """Инициализация HTTP сессии"""
-        if not self.session:
-            timeout = aiohttp.ClientTimeout(total=self.config.request_timeout)
-            self.session = aiohttp.ClientSession(timeout=timeout)
-
-    async def close_session(self):
-        """Закрытие HTTP сессии"""
-        if self.session:
-            await self.session.close()
-            self.session = None
-
-    async def _make_request(
+    async def _call(
         self,
+        method: str,
         url: str,
-        method: str = "POST",
-        data: Optional[Dict[str, Any]] = None,
-        retries: int = 0,
+        *,
+        json_body: Any | None = None,
+        headers: Dict[str, str] | None = None,
     ) -> Dict[str, Any]:
-        """Выполнение HTTP запроса с повторными попытками"""
-        await self.init_session()
-
-        try:
-            if method == "GET":
-                async with self.session.get(url) as response:
-                    response.raise_for_status()
-                    return await response.json()
-            else:
-                async with self.session.post(url, json=data) as response:
-                    response.raise_for_status()
-                    return await response.json()
-
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            if retries < self.config.max_retries:
-                logger.warning(
-                    f"Ошибка запроса к {url}, повтор {retries + 1}/{self.config.max_retries}: {e}"
+        assert self._session, "HTTP session is not started"
+        tries = 0
+        while True:
+            t0 = time.perf_counter()
+            try:
+                async with self._session.request(
+                    method, url, json=json_body, headers=headers
+                ) as r:
+                    content = await r.text()
+                    duration_ms = round((time.perf_counter() - t0) * 1000, 1)
+                    jinfo(
+                        "http_call",
+                        event="http_call",
+                        url=url,
+                        method=method,
+                        status=r.status,
+                        duration_ms=duration_ms,
+                        bytes=len(content),
+                    )
+                    r.raise_for_status()
+                    if content:
+                        return json.loads(content)
+                    return {}
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                tries += 1
+                if tries <= self._max_retries:
+                    jinfo(
+                        "http_retry",
+                        event="http_retry",
+                        url=url,
+                        method=method,
+                        tries=tries,
+                        error=str(e),
+                    )
+                    await asyncio.sleep(self._retry_delay * tries)
+                    continue
+                jerror(
+                    "http_failed",
+                    event="http_failed",
+                    url=url,
+                    method=method,
+                    error=str(e),
                 )
-                await asyncio.sleep(self.config.retry_delay * (retries + 1))
-                return await self._make_request(url, method, data, retries + 1)
-            else:
-                logger.error(
-                    f"Не удалось выполнить запрос к {url} после {self.config.max_retries} попыток: {e}"
-                )
-                raise HTTPException(status_code=503, detail=f"Сервис {url} недоступен")
+                raise
 
-    async def check_regex_moderation(self, text: str) -> tuple[bool, str]:
-        """Проверка модерации regex"""
-        try:
-            url = f"{self.config.moderation_regex_url}/detect"
-            data = {"text": text}
+    async def get(
+        self, url: str, *, headers: Dict[str, str] | None = None
+    ) -> Dict[str, Any]:
+        return await self._call("GET", url, headers=headers)
 
-            result = await self._make_request(url, "POST", data)
+    async def post(
+        self, url: str, *, json_body: Any, headers: Dict[str, str] | None = None
+    ) -> Dict[str, Any]:
+        return await self._call("POST", url, json_body=json_body, headers=headers)
 
-            injection = result.get("injection", False)
-            pattern = result.get("detected_pattern", "")
 
-            logger.info(f"Regex модерация: injection={injection}, pattern={pattern}")
-            return injection, pattern
+http = AsyncHTTP(config.request_timeout, config.max_retries, config.retry_delay)
 
-        except Exception as e:
-            logger.error(f"Ошибка при проверке regex модерации: {e}")
-            raise HTTPException(status_code=500, detail="Ошибка модерации regex")
 
-    async def check_nlp_moderation(self, text: str) -> tuple[bool, str, float]:
-        """Проверка модерации NLP"""
-        try:
-            url = f"{self.config.moderation_nlp_url}/classify"
-            data = {"text": text}
+# ---------- IAM token provider (shared) ----------
+class IAMTokenProvider:
+    def __init__(self, cfg: OrchestratorConfig):
+        self.cfg = cfg
+        self._iam_token: Optional[str] = None
+        self._expires_at: int = 0  # epoch seconds
 
-            result = await self._make_request(url, "POST", data)
+    async def get_token(self) -> str:
+        now = int(time.time())
+        if self._iam_token and now < self._expires_at:
+            return self._iam_token
 
-            injection = result.get("injection", False)
-            label = result.get("label", "")
-            score = result.get("score", 0.0)
+        payload = {
+            "aud": "https://iam.api.cloud.yandex.net/iam/v1/tokens",
+            "iss": self.cfg.SERVICE_ACCOUNT_ID,
+            "iat": now,
+            "exp": now + 3600,
+        }
+        # PS256 requires PRIVATE_KEY in PKCS8
+        encoded_jwt = jwt.encode(
+            payload,
+            self.cfg.PRIVATE_KEY,
+            algorithm="PS256",
+            headers={"kid": self.cfg.KEY_ID},
+        )
 
-            logger.info(
-                f"NLP модерация: injection={injection}, label={label}, score={score}"
-            )
-            return injection, label, score
+        url = "https://iam.api.cloud.yandex.net/iam/v1/tokens"
+        data = {"jwt": encoded_jwt}
+        # use bare aiohttp for tiny one-off? keep via shared http for uniform logs:
+        resp = await http.post(url, json_body=data)
+        token = resp.get("iamToken")
+        if not token:
+            raise RuntimeError("IAM token not in response")
+        self._iam_token = token
+        # expire slightly earlier
+        self._expires_at = now + 3500
+        jinfo("iam_token_ok", event="iam_token")
+        return token
 
-        except Exception as e:
-            logger.error(f"Ошибка при проверке NLP модерации: {e}")
-            raise HTTPException(status_code=500, detail="Ошибка модерации NLP")
+
+iam = IAMTokenProvider(config)
+
+
+# ---------- request processor (no duplication) ----------
+class RequestProcessor:
+    def __init__(self, cfg: OrchestratorConfig):
+        self.cfg = cfg
+
+    async def check_regex_moderation(self, text: str) -> Tuple[bool, str]:
+        url = f"{self.cfg.moderation_regex_url}/detect"
+        result = await http.post(url, json_body={"text": text})
+        inj = bool(result.get("injection", False))
+        pattern = result.get("detected_pattern", "") or result.get("pattern", "")
+        jinfo("regex_done", event="moderation_regex", injection=inj, pattern=pattern)
+        return inj, pattern
+
+    async def check_nlp_moderation(self, text: str) -> Tuple[bool, str, float]:
+        url = f"{self.cfg.moderation_nlp_url}/classify"
+        result = await http.post(url, json_body={"text": text})
+        inj = bool(result.get("injection", False))
+        label = result.get("label", "")
+        score = float(result.get("score", 0.0) or 0.0)
+        jinfo(
+            "nlp_done", event="moderation_nlp", injection=inj, label=label, score=score
+        )
+        return inj, label, score
 
     async def get_rag_context(self, query: str) -> str:
-        """Получение контекста из RAG"""
-        try:
-            url = f"{self.config.rag_url}/search"
-            data = {"query": query}
-
-            result = await self._make_request(url, "POST", data)
-
-            context = result.get("context", "")
-            logger.info(f"RAG контекст получен: {len(context)} символов")
-            return context
-
-        except Exception as e:
-            logger.error(f"Ошибка при получении RAG контекста: {e}")
-            raise HTTPException(status_code=500, detail="Ошибка получения контекста")
+        url = f"{self.cfg.rag_url}/search"
+        result = await http.post(url, json_body={"query": query})
+        ctx = result.get("context", "") or result.get("text", "")
+        jinfo("rag_done", event="rag_search", ctx_len=len(ctx))
+        return ctx
 
     async def get_llm_response(self, user_message: str, context: str = "") -> str:
-        """Получение ответа от LLM агента"""
+        url = f"{self.cfg.llm_agent_url}/v1/completion"
+        msg_text = (
+            f"Контекст: {context}\n\nВопрос пользователя: {user_message}"
+            if context
+            else user_message
+        )
+
+        # If LLM requires YC IAM/FOLDER headers, attach them; otherwise harmless.
+        headers = {
+            "x-node-id": self.cfg.NODE_ID,
+            "x-folder-id": self.cfg.FOLDER_ID,
+        }
+        # Optionally add Authorization if your LLM expects YC IAM:
+        if self.cfg.SERVICE_ACCOUNT_ID and self.cfg.PRIVATE_KEY and self.cfg.KEY_ID:
+            try:
+                token = await iam.get_token()
+                headers["Authorization"] = f"Bearer {token}"
+            except Exception as e:
+                # continue without token if not needed
+                jerror("iam_fail_for_llm", event="iam_token_llm", error=str(e))
+
+        result = await http.post(
+            url,
+            json_body={"messages": [{"role": "user", "text": msg_text}]},
+            headers=headers,
+        )
+        # normalize field name
+        alt = (
+            result.get("result", {})
+            .get("alternatives", [{}])[0]
+            .get("message", {})
+            .get("text")
+        )
+        resp = result.get("response") or result.get("text") or alt
+        if not isinstance(resp, str):
+            resp = "Извините, произошла ошибка при генерации ответа"
+        jinfo("llm_done", event="llm_completion", resp_len=len(resp))
+        return resp
+
+    async def process(self, req: UserRequest) -> ProcessingResult:
+        t0 = time.time()
+        jinfo("process_start", event="process_start", user_id=req.user_id)
+
         try:
-            url = f"{self.config.llm_agent_url}/v1/completion"
-
-            # Формируем сообщение с контекстом
-            message_text = user_message
-            if context:
-                message_text = (
-                    f"Контекст: {context}\n\nВопрос пользователя: {user_message}"
-                )
-
-            data = {"messages": [{"role": "user", "text": message_text}]}
-
-            result = await self._make_request(url, "POST", data)
-
-            # Предполагаем, что LLM возвращает ответ в поле 'response' или 'text'
-            response = result.get(
-                "response",
-                result.get("text", "Извините, произошла ошибка при генерации ответа"),
-            )
-
-            logger.info(f"LLM ответ получен: {len(response)} символов")
-            return response
-
-        except Exception as e:
-            logger.error(f"Ошибка при получении ответа от LLM: {e}")
-            raise HTTPException(status_code=500, detail="Ошибка генерации ответа")
-
-    async def process_request(self, request: UserRequest) -> ProcessingResult:
-        """Основная функция обработки запроса пользователя"""
-        import time
-
-        start_time = time.time()
-
-        logger.info(f"Начинаем обработку запроса от пользователя {request.user_id}")
-
-        try:
-            # Этап 1: Модерация regex
-            logger.info("Этап 1: Проверка regex модерации")
-            regex_blocked, regex_pattern = await self.check_regex_moderation(
-                request.message
-            )
-
-            if regex_blocked:
-                processing_time = time.time() - start_time
-                logger.warning(f"Запрос заблокирован regex модерацией: {regex_pattern}")
+            # 1) regex (fast block)
+            blocked, pattern = await self.check_regex_moderation(req.message)
+            if blocked:
+                dt = time.time() - t0
                 return ProcessingResult(
                     status=ProcessingStatus.MODERATION_BLOCKED,
                     response="Ваш запрос содержит недопустимый контент.",
-                    blocked_reason=f"Regex: {regex_pattern}",
-                    processing_time=processing_time,
+                    blocked_reason=f"Regex: {pattern}",
+                    processing_time=dt,
                 )
 
-            # Этап 2: Модерация NLP
-            logger.info("Этап 2: Проверка NLP модерации")
-            nlp_blocked, nlp_label, nlp_score = await self.check_nlp_moderation(
-                request.message
-            )
-
-            if nlp_blocked:
-                processing_time = time.time() - start_time
-                logger.warning(
-                    f"Запрос заблокирован NLP модерацией: {nlp_label} (score: {nlp_score})"
-                )
+            # 2) nlp (probabilistic block)
+            blocked, label, score = await self.check_nlp_moderation(req.message)
+            if blocked:
+                dt = time.time() - t0
                 return ProcessingResult(
                     status=ProcessingStatus.MODERATION_BLOCKED,
                     response="Ваш запрос содержит потенциально вредоносный контент.",
-                    blocked_reason=f"NLP: {nlp_label} (score: {nlp_score})",
-                    processing_time=processing_time,
+                    blocked_reason=f"NLP: {label} (score: {score})",
+                    processing_time=dt,
                 )
 
-            # Этап 3: Получение контекста из RAG
-            logger.info("Этап 3: Получение контекста из RAG")
-            context = await self.get_rag_context(request.message)
+            # 3) RAG → 4) LLM
+            ctx = await self.get_rag_context(req.message)
+            llm_text = await self.get_llm_response(req.message, ctx)
 
-            # Этап 4: Получение ответа от LLM
-            logger.info("Этап 4: Генерация ответа LLM")
-            llm_response = await self.get_llm_response(request.message, context)
-
-            processing_time = time.time() - start_time
-            logger.info(f"Запрос успешно обработан за {processing_time:.2f} сек")
-
+            dt = time.time() - t0
+            jinfo("process_ok", event="process_ok", duration_ms=round(dt * 1000, 1))
             return ProcessingResult(
-                status=ProcessingStatus.SUCCESS,
-                response=llm_response,
-                processing_time=processing_time,
+                status=ProcessingStatus.SUCCESS, response=llm_text, processing_time=dt
             )
 
         except HTTPException:
             raise
         except Exception as e:
-            processing_time = time.time() - start_time
-            logger.error(f"Неожиданная ошибка при обработке запроса: {e}")
+            dt = time.time() - t0
+            jerror("process_fail", event="process_fail", error=str(e))
             return ProcessingResult(
                 status=ProcessingStatus.ERROR,
                 response="Произошла внутренняя ошибка сервера.",
-                processing_time=processing_time,
+                processing_time=dt,
             )
 
 
-class HealthChecker:
-    """Класс для проверки здоровья сервисов"""
-
-    def __init__(self, config: OrchestratorConfig):
-        self.config = config
-        self.session: Optional[aiohttp.ClientSession] = None
-
-    async def init_session(self):
-        """Инициализация HTTP сессии для health check"""
-        if not self.session:
-            timeout = aiohttp.ClientTimeout(total=self.config.health_check_timeout)
-            self.session = aiohttp.ClientSession(timeout=timeout)
-
-    async def close_session(self):
-        """Закрытие HTTP сессии"""
-        if self.session:
-            await self.session.close()
-            self.session = None
-
-    async def check_service(self, service: ServiceEndpoint) -> bool:
-        """Проверка здоровья одного сервиса"""
-        await self.init_session()
-
-        try:
-            url = f"{service.url}{service.health_path}"
-            async with self.session.get(url) as response:
-                return response.status == 200
-        except Exception as e:
-            logger.warning(f"Сервис {service.name} недоступен: {e}")
-            return False
-
-    async def check_all_services(self) -> Dict[str, bool]:
-        """Проверка здоровья всех сервисов"""
-        results = {}
-
-        # Проверяем все сервисы параллельно
-        tasks = [self.check_service(service) for service in self.config.services]
-
-        service_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        for service, result in zip(self.config.services, service_results):
-            if isinstance(result, Exception):
-                results[service.name] = False
-            else:
-                results[service.name] = result
-
-        return results
+processor = RequestProcessor(config)
 
 
-# Инициализация приложения
+# ---------- health checks via shared client ----------
+async def check_all_services() -> Dict[str, bool]:
+    tasks = []
+    for s in config.services:
+        url = f"{s.url}{s.health_path}"
+        tasks.append(http.get(url))
+    results: Dict[str, bool] = {}
+    gathered = await asyncio.gather(*tasks, return_exceptions=True)
+    for s, r in zip(config.services, gathered):
+        ok = not isinstance(r, Exception)
+        results[s.name] = ok
+        if not ok:
+            jinfo("svc_down", event="service_health", service=s.name)
+    return results
+
+
+# ---------- FastAPI app ----------
 app = FastAPI(
     title="LLM Agent Orchestrator",
     description="Оркестратор для системы защищенного LLM агента с Telegram ботом",
-    version="1.0.0",
+    version="1.1.0",
 )
 
-# Добавляем CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -354,80 +435,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Глобальные объекты
-config = OrchestratorConfig()
-processor = RequestProcessor(config)
-health_checker = HealthChecker(config)
-
 
 @app.on_event("startup")
-async def startup_event():
-    """Инициализация при запуске приложения"""
-    logger.info("Запуск оркестратора...")
-    await processor.init_session()
-    await health_checker.init_session()
-    logger.info("Оркестратор успешно запущен")
+async def on_startup():
+    jinfo("startup", event="startup")
+    await http.start()
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
-    """Очистка ресурсов при завершении"""
-    logger.info("Завершение работы оркестратора...")
-    await processor.close_session()
-    await health_checker.close_session()
-    logger.info("Оркестратор завершен")
+async def on_shutdown():
+    jinfo("shutdown", event="shutdown")
+    await http.close()
 
 
 @app.get("/", response_model=HealthCheckResponse)
-async def health_check():
-    """Health check endpoint"""
+async def health_root():
     try:
-        services_status = await health_checker.check_all_services()
-
+        services_status = await check_all_services()
         return HealthCheckResponse(status="healthy", services=services_status)
     except Exception as e:
-        logger.error(f"Ошибка при проверке здоровья: {e}")
+        jerror("health_fail", event="health_check", error=str(e))
         raise HTTPException(status_code=500, detail="Ошибка проверки здоровья")
 
 
-@app.post("/process", response_model=ProcessingResult)
-async def process_user_request(request: UserRequest):
-    """
-    Главный endpoint для обработки запросов пользователей.
-    Выполняет полный пайплайн: модерация -> RAG -> LLM -> ответ
-    """
-    try:
-        logger.info(f"Получен запрос на обработку от пользователя {request.user_id}")
-        result = await processor.process_request(request)
-        return result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Критическая ошибка при обработке запроса: {e}")
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-
-
 @app.get("/services/status")
-async def get_services_status():
-    """Получение статуса всех микросервисов"""
+async def services_status():
     try:
-        services_status = await health_checker.check_all_services()
+        services_status = await check_all_services()
         return {
             "orchestrator": "healthy",
             "services": services_status,
             "all_healthy": all(services_status.values()),
         }
     except Exception as e:
-        logger.error(f"Ошибка при получении статуса сервисов: {e}")
+        jerror("services_status_fail", event="services_status", error=str(e))
         raise HTTPException(status_code=500, detail="Ошибка получения статуса сервисов")
 
 
+@app.post("/process", response_model=ProcessingResult)
+async def process_user_request(request: UserRequest):
+    try:
+        return await processor.process(request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        jerror("endpoint_fail", event="process_endpoint", error=str(e))
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
 if __name__ == "__main__":
-    # Запуск сервера
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "0.0.0.0")
-
-    logger.info(f"Запуск оркестратора на {host}:{port}")
-
+    jinfo("run_uvicorn", event="uvicorn_run", host=host, port=port)
     uvicorn.run("main:app", host=host, port=port, reload=False, log_level="info")

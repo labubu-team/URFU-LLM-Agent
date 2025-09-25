@@ -3,8 +3,10 @@ name = "test_bot"
 version = "0"
 requires-python = ">=3.10,<3.14"
 dependencies = [
+    "aiohttp>=3.12.15",
     "cryptography>=42.0.0",
     "fastapi>=0.116.2",
+    "httpx>=0.28.1",
     "pydantic>=2.9.0",
     "PyJWT>=2.10.1",
     "python-dotenv>=1.1.1",

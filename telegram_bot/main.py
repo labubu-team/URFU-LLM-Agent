@@ -1,7 +1,6 @@
 import asyncio
 import time
 import json
-import jwt
 import logging
 import os
 import socket
@@ -9,9 +8,9 @@ import sys
 import signal
 from typing import Any, Dict, Optional
 
-from aiohttp import web
 import dotenv
-import requests
+import aiohttp
+from aiohttp import web
 
 from telegram import Update
 from telegram.constants import ChatAction
@@ -25,19 +24,19 @@ from telegram.ext import (
 from telegram.error import BadRequest, Forbidden, TimedOut, NetworkError
 
 dotenv.load_dotenv()
+
+# --- ENV ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/tg")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 PORT = int(os.getenv("PORT", "8080"))
-LLM_AGENT_URL = os.getenv("LLM_AGENT_URL", "").rstrip("/")
-NODE_ID=os.getenv("NODE_ID", "")
-FOLDER_ID=os.getenv("FOLDER_ID", "")
-SERVICE_ACCOUNT_ID=os.getenv("SERVICE_ACCOUNT_ID", "")
-PUBLIC_KEY=os.getenv('PUBLIC_KEY', "")
-PRIVATE_KEY=os.getenv('PRIVATE_KEY', "")
-KEY_ID=os.getenv('KEY_ID', "")
-LLM_AGENT_HOST = os.getenv("LLM_AGENT_HOST", "llm-agent")
-LLM_AGENT_PORT = int(os.getenv("LLM_AGENT_PORT", "7999"))
+
+# Оркестратор (из предыдущего файла): base-url или host:port
+ORCH_URL = os.getenv("ORCHESTRATOR_URL", "").rstrip("/")
+ORCH_HOST = os.getenv("ORCHESTRATOR_HOST", "orchestrator")
+ORCH_PORT = int(os.getenv("ORCHESTRATOR_PORT", "8000"))
+
+HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "20"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 STARTED_AT = time.time()
 
@@ -109,6 +108,7 @@ def jerror(m, **f):
     return log.error(m, extra=f)
 
 
+# --- helpers ---
 def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
@@ -117,103 +117,56 @@ def _tcp_ok(host: str, port: int, timeout: float = 0.7) -> bool:
         return False
 
 
-def _llm_url() -> str:
-    return (
-        f"{LLM_AGENT_URL}/v1/completion"
-        if LLM_AGENT_URL
-        else f"http://{LLM_AGENT_HOST}:{LLM_AGENT_PORT}/v1/completion"
-    )
+def _orch_base() -> str:
+    return ORCH_URL if ORCH_URL else f"http://{ORCH_HOST}:{ORCH_PORT}"
 
 
-class YandexGPTBot:
-    def __init__(self):
-        self.iam_token = None
-        self.token_expires = 0
+# --- global aiohttp session ---
+http: Optional[aiohttp.ClientSession] = None
 
-    def get_iam_token(self):
-        """Получение IAM-токена (с кэшированием на 1 час)"""
-        if self.iam_token and time.time() < self.token_expires:
-            return self.iam_token
 
-        try:
-            now = int(time.time())
-            payload = {
-                'aud': 'https://iam.api.cloud.yandex.net/iam/v1/tokens',
-                'iss': SERVICE_ACCOUNT_ID,
-                'iat': now,
-                'exp': now + 3600
-            }
+async def orch_process(user_id: str, chat_id: str, text: str) -> str:
+    """
+    Делает единый запрос к оркестратору /process и нормализует ответ для Telegram.
+    """
+    assert http is not None, "HTTP session not initialized"
+    url = _orch_base() + "/process"
+    payload = {"user_id": user_id, "message": text, "chat_id": chat_id}
 
-            encoded_token = jwt.encode(
-                payload,
-                PRIVATE_KEY,
-                algorithm='PS256',
-                headers={'kid': KEY_ID}
-            )
-
-            response = requests.post(
-                'https://iam.api.cloud.yandex.net/iam/v1/tokens',
-                json={'jwt': encoded_token},
-                timeout=10
-            )
-
-            if response.status_code != 200:
-                raise Exception(f"Ошибка генерации токена: {response.text}")
-
-            token_data = response.json()
-            self.iam_token = token_data['iamToken']
-            self.token_expires = now + 3500  # На 100 секунд меньше срока действия
-
-            jinfo("IAM token generated successfully", event="get_iam_token_llm_request")
-            return self.iam_token
-
-        except Exception as e:
-            jerror(f"Error generating IAM token: {str(e)}", event="get_iam_token_llm_request")
-            raise
-
-    def ask_gpt(self, q: str) -> str:
-        iam_token = self.get_iam_token()
-        t0 = time.perf_counter()
-        url = _llm_url()
-        try:
-            r = requests.post(
-                url,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-node-id": NODE_ID,
-                    "Authorization": f"Bearer {iam_token}",
-                    "x-folder-id": FOLDER_ID,
-                },
-                json={"messages": [{"role": "user", "text": q}]},
-                timeout=15,
-            )
+    t0 = time.perf_counter()
+    try:
+        async with http.post(url, json=payload) as r:
+            body = await r.text()
             dt = round((time.perf_counter() - t0) * 1000, 1)
             jinfo(
-                "LLM request done",
-                event="llm_request",
+                "orch_call",
+                event="orch_call",
                 url=url,
-                status=r.status_code,
+                status=r.status,
                 duration_ms=dt,
-                bytes=len(r.content),
+                bytes=len(body),
             )
             r.raise_for_status()
-            j = r.json()
-            return j["result"]["alternatives"][0]["message"]["text"]
-        except Exception as e:
-            dt = round((time.perf_counter() - t0) * 1000, 1)
-            jerror(
-                "LLM request failed",
-                event="llm_error",
-                url=url,
-                duration_ms=dt,
-                error=str(e),
-            )
-            raise
+            data = json.loads(body)
+    except Exception as e:
+        jerror("orch_failed", event="orch_failed", url=url, error=str(e))
+        return "Сервис недоступен. Попробуйте позже."
+
+    # Единый формат (совпадает с моделями из оркестратора)
+    status = str(data.get("status", "")).lower()
+    response = data.get("response") or ""
+    blocked_reason = data.get("blocked_reason") or ""
+
+    if status == "success":
+        return str(response) if isinstance(response, str) else "Готово."
+    if status == "moderation_blocked":
+        reason = f"\nПричина: {blocked_reason}" if blocked_reason else ""
+        return f"Запрос заблокирован модерацией.{reason}"
+    # error / fallback
+    return "Произошла внутренняя ошибка. Попробуйте позже."
 
 
-llm = YandexGPTBot()
-
-
+# --- Telegram handlers ---
 async def start_cmd(u: Update, c: ContextTypes.DEFAULT_TYPE):
     chat = u.effective_chat
     usr = u.effective_user
@@ -226,7 +179,7 @@ async def start_cmd(u: Update, c: ContextTypes.DEFAULT_TYPE):
         chat_id=getattr(chat, "id", None),
         chat_type=getattr(chat, "type", None),
     )
-    await u.message.reply_text("Привет! Я бот для Yandex GPT. Напиши вопрос.")
+    await u.message.reply_text("ну привет, скуф, чего тебе нужно?")
 
 
 async def msg_handler(u: Update, c: ContextTypes.DEFAULT_TYPE):
@@ -243,10 +196,9 @@ async def msg_handler(u: Update, c: ContextTypes.DEFAULT_TYPE):
         text_len=len(text),
     )
     if not text:
-        # просто молча игнорируем пустые
         return
 
-    # В каналах часто 400: нет прав/нет смысла слать action. Скипаем.
+    # Каналы: не пытаемся слать action
     if chat and getattr(chat, "type", None) == "channel":
         jinfo(
             "Skip: channel message (no rights to reply)",
@@ -255,7 +207,7 @@ async def msg_handler(u: Update, c: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Best-effort send_chat_action: не валимся на 400
+    # "печатает..."
     try:
         await c.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
     except BadRequest as e:
@@ -275,10 +227,9 @@ async def msg_handler(u: Update, c: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        answer = llm.ask_gpt(text)
+        answer = await orch_process(str(usr.id), str(chat.id), text)
         await msg.reply_text(answer, disable_web_page_preview=True)
     except (Forbidden, BadRequest) as e:
-        # НИЧЕГО не отправляем повторно — только логируем
         jerror(
             "Reply failed",
             event="tg_reply_error",
@@ -310,6 +261,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# --- aiohttp app (webhook + health) ---
 app = web.Application()
 ptb: Optional[Application] = None
 
@@ -321,15 +273,24 @@ async def healthz(_: web.Request):
 
 
 async def readyz(_: web.Request):
+    # если указан ORCH_URL — пытаемся GET / для статуса; если нет, проверим TCP host:port
     deps = {
         "telegram_token": bool(TELEGRAM_TOKEN),
         "telegram_tcp": _tcp_ok("api.telegram.org", 443),
-        "llm_url": _llm_url(),
-        "llm_agent_tcp": (
-            True if LLM_AGENT_URL else _tcp_ok(LLM_AGENT_HOST, LLM_AGENT_PORT)
-        ),
+        "orchestrator_url": _orch_base(),
+        "orchestrator_tcp": True if ORCH_URL else _tcp_ok(ORCH_HOST, ORCH_PORT),
+        "orchestrator_health": False,
     }
-    ok = deps["telegram_token"] and deps["telegram_tcp"] and deps["llm_agent_tcp"]
+    ok_tcp = deps["orchestrator_tcp"]
+    health_ok = False
+    if http and ok_tcp:
+        try:
+            async with http.get(_orch_base() + "/") as r:
+                health_ok = r.status == 200
+        except Exception:
+            health_ok = False
+    deps["orchestrator_health"] = health_ok
+    ok = deps["telegram_token"] and deps["telegram_tcp"] and ok_tcp and health_ok
     return web.json_response(
         {"status": "ok" if ok else "degraded", "dependencies": deps},
         status=200 if ok else 503,
@@ -356,9 +317,13 @@ app.router.add_get("/readyz", readyz)
 app.router.add_post(WEBHOOK_PATH, tg_webhook)
 
 
+# --- main lifecycle ---
 async def amain():
     if not TELEGRAM_TOKEN:
         raise RuntimeError("TELEGRAM_TOKEN must be set")
+
+    global http
+    http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT))
 
     global ptb
     ptb = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -373,7 +338,13 @@ async def amain():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    jinfo("Started", event="startup", port=PORT, webhook_path=WEBHOOK_PATH)
+    jinfo(
+        "Started",
+        event="startup",
+        port=PORT,
+        webhook_path=WEBHOOK_PATH,
+        orch_base=_orch_base(),
+    )
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -387,9 +358,13 @@ async def amain():
         await stop_event.wait()
     finally:
         jinfo("Shutting down...", event="shutdown")
-        await ptb.stop()
-        await ptb.shutdown()
-        await runner.cleanup()
+        try:
+            await ptb.stop()
+            await ptb.shutdown()
+        finally:
+            if http:
+                await http.close()
+            await runner.cleanup()
 
 
 if __name__ == "__main__":
