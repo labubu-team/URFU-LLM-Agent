@@ -27,26 +27,85 @@ jobs:
         id: lc
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
+  discover:
+    name: Discover existing Dockerfiles
+    runs-on: ubuntu-latest
+    outputs:
+      build_matrix: ${{ steps.gen.outputs.build_matrix }}
+      deploy_matrix: ${{ steps.gen.outputs.deploy_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gen
+        shell: bash
+        run: |
+          # Карта ожидаемых компонентов -> Dockerfile
+          declare -A files=(
+            [tgbot]=telegram_bot.Dockerfile
+            [rag]=rag.Dockerfile
+            [moderation_regex]=moderation_regex.Dockerfile
+            [moderation_nlp]=moderation_nlp.Dockerfile
+            [llm_agent]=llm_agent.Dockerfile
+            [orchestrator]=orchestrator.Dockerfile
+          )
+          # Имена образов в GHCR и YC
+          declare -A ghcr=(
+            [tgbot]=labubu-tgbot
+            [rag]=labubu-rag
+            [moderation_regex]=labubu-moderation_regex
+            [moderation_nlp]=labubu-moderation_nlp
+            [llm_agent]=llm_agent
+            [orchestrator]=orchestrator
+          )
+          declare -A yc=(
+            [tgbot]=labubu-tgbot
+            [rag]=labubu-rag
+            [moderation_regex]=labubu-moderation_regex
+            [moderation_nlp]=labubu-moderation-nlp
+            [llm_agent]=labubu-llm_agent
+            [orchestrator]=labubu-orchestrator
+          )
+
+          build_include=()
+          deploy_include=()
+
+          for name in "${!files[@]}"; do
+            df="${files[$name]}"
+            if [[ -f "$df" ]]; then
+              build_include+=("{\"name\":\"$name\",\"dockerfile\":\"$df\",\"ghcr_image\":\"${ghcr[$name]}\",\"yc_image\":\"${yc[$name]}\"}")
+              # Добавляем в deploy только те сервисы, у которых есть конфиг деплоя
+              case "$name" in
+                tgbot)
+                  deploy_include+=("{\"name\":\"tgbot\",\"container\":\"tgbot\",\"yc_image\":\"${yc[$name]}\",\"cores\":1,\"memory\":\"1024Mb\",\"core_fraction\":20,\"concurrency\":8,\"timeout\":10,\"secrets\":\"TELEGRAM_TOKEN=e6qno2jsufp1d2i8n2km/latest/tg_token\nSERVICE_ACCOUNT_ID=e6qgn68inv1vekf3iib9/latest/SERVICE_ACCOUNT_ID\"}")
+                  ;;
+                rag)
+                  deploy_include+=("{\"name\":\"rag\",\"container\":\"rag\",\"yc_image\":\"${yc[$name]}\",\"cores\":1,\"memory\":\"1024Mb\",\"core_fraction\":100,\"concurrency\":8,\"timeout\":10,\"secrets\":\"S3_ENDPOINT=e6qa6sntgejel6jqbmvb/latest/S3_ENDPOINT\nS3_ACCESS_KEY=e6qubg2fssalpqi6f8l9/latest/S3_ACCESS_KEY\nS3_SECRET_KEY=e6q3dqhcqot6nmid64m8/latest/S3_SECRET_KEY\nS3_BUCKET=e6qckd0l8je2ft50nlk6/latest/S3_BUCKET\"}")
+                  ;;
+                moderation_regex)
+                  deploy_include+=("{\"name\":\"moderation_regex\",\"container\":\"moderation-regex\",\"yc_image\":\"${yc[$name]}\",\"cores\":1,\"memory\":\"2048Mb\",\"core_fraction\":20,\"concurrency\":8,\"timeout\":10,\"secrets\":\"\"}")
+                  ;;
+                moderation_nlp)
+                  deploy_include+=("{\"name\":\"moderation_nlp\",\"container\":\"moderation-nlp\",\"yc_image\":\"${yc[$name]}\",\"cores\":4,\"memory\":\"4096Mb\",\"core_fraction\":100,\"concurrency\":8,\"timeout\":10,\"secrets\":\"\"}")
+                  ;;
+                orchestrator)
+                  deploy_include+=("{\"name\":\"orchestrator\",\"container\":\"orchestrator\",\"yc_image\":\"${yc[$name]}\",\"cores\":2,\"memory\":\"2048Mb\",\"core_fraction\":50,\"concurrency\":8,\"timeout\":10,\"secrets\":\"\"}")
+                  ;;
+              esac
+            fi
+          done
+
+          printf -v build_json '{"include":[%s]}' "$(IFS=,; echo "${build_include[*]}")"
+          printf -v deploy_json '{"include":[%s]}' "$(IFS=,; echo "${deploy_include[*]}")"
+
+          echo "build_matrix=$build_json"   >> "$GITHUB_OUTPUT"
+          echo "deploy_matrix=$deploy_json" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build (compute-heavy)
-    needs: prep
+    needs: [ prep, discover ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: tgbot
-            dockerfile: telegram_bot.Dockerfile
-          - name: rag
-            dockerfile: rag.Dockerfile
-          - name: moderation_regex
-            dockerfile: moderation_regex.Dockerfile
-          - name: moderation_nlp
-            dockerfile: moderation_nlp.Dockerfile
-          - name: llm_agent
-            dockerfile: llm_agent.Dockerfile
-          - name: orchestrator
-            dockerfile: orchestrator.Dockerfile
+      matrix: ${{ fromJson(needs.discover.outputs.build_matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -88,30 +147,11 @@ jobs:
 
   push:
     name: Tag & Push to GHCR and YC
-    needs: [ prep, build ]
+    needs: [ prep, discover, build ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: tgbot
-            ghcr_image: labubu-tgbot
-            yc_image: labubu-tgbot
-          - name: rag
-            ghcr_image: labubu-rag
-            yc_image: labubu-rag
-          - name: moderation_regex
-            ghcr_image: labubu-moderation_regex
-            yc_image: labubu-moderation_regex
-          - name: moderation_nlp
-            ghcr_image: labubu-moderation_nlp
-            yc_image: labubu-moderation-nlp
-          - name: llm_agent
-            ghcr_image: llm_agent
-            yc_image: labubu-llm_agent
-          - name: orchestrator
-            ghcr_image: orchestrator
-            yc_image: labubu-orchestrator
+      matrix: ${{ fromJson(needs.discover.outputs.build_matrix) }}
     steps:
       - name: Download built image
         uses: actions/download-artifact@v4
@@ -140,98 +180,42 @@ jobs:
 
       - name: Push GHCR
         run: |
-          docker push $GHCR_REPO:latest
-          docker push $GHCR_REPO:${{ github.run_number }}
+          docker push "$GHCR_REPO:latest"
+          docker push "$GHCR_REPO:${{ github.run_number }}"
 
       - name: Get Yandex Cloud IAM token
         id: yc-iam
-        uses: yc-actions/yc-iam-token-fed@v2
+        # контейнерная экшен (версия рабочая)
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
         with:
-          sa-id: ${{ secrets.SA_ID }}
+          yc-sa-id: ${{ secrets.SA_ID }}
 
       - name: Login to YC Container Registry
         uses: docker/login-action@v3
         with:
           registry: cr.yandex
           username: iam
-          password: ${{ steps.yc-iam.outputs.iam-token }}
+          password: ${{ steps.yc-iam.outputs.token }}
 
       - name: Tag for YC
         run: |
           YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/${{ matrix.yc_image }}
-          docker tag local/${{ matrix.name }}:build $YC_REPO:latest
-          docker tag local/${{ matrix.name }}:build $YC_REPO:${{ github.run_number }}
+          docker tag local/${{ matrix.name }}:build "$YC_REPO:latest"
+          docker tag local/${{ matrix.name }}:build "$YC_REPO:${{ github.run_number }}"
           echo "YC_REPO=$YC_REPO" >> $GITHUB_ENV
-
-      - name: Debug YC login & tags
-        run: |
-          echo "YC_REPO=$YC_REPO"
-          docker image ls | grep local/${{ matrix.name }} || true
 
       - name: Push YC
         run: |
-          docker push $YC_REPO:latest
-          docker push $YC_REPO:${{ github.run_number }}
+          docker push "$YC_REPO:latest"
+          docker push "$YC_REPO:${{ github.run_number }}"
 
   deploy:
     name: Deploy YC Serverless Containers
-    needs: push
+    needs: [ push, discover ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: tgbot
-            container: tgbot
-            yc_image: labubu-tgbot
-            cores: 1
-            memory: 1024Mb
-            core_fraction: 20
-            concurrency: 8
-            timeout: 10
-            secrets: |-
-              TELEGRAM_TOKEN=e6qno2jsufp1d2i8n2km/latest/tg_token
-              SERVICE_ACCOUNT_ID=e6qgn68inv1vekf3iib9/latest/SERVICE_ACCOUNT_ID
-          - name: rag
-            container: rag
-            yc_image: labubu-rag
-            cores: 1
-            memory: 1024Mb
-            core_fraction: 100
-            concurrency: 8
-            timeout: 10
-            secrets: |-
-              S3_ENDPOINT=e6qa6sntgejel6jqbmvb/latest/S3_ENDPOINT
-              S3_ACCESS_KEY=e6qubg2fssalpqi6f8l9/latest/S3_ACCESS_KEY
-              S3_SECRET_KEY=e6q3dqhcqot6nmid64m8/latest/S3_SECRET_KEY
-              S3_BUCKET=e6qckd0l8je2ft50nlk6/latest/S3_BUCKET
-          - name: moderation_regex
-            container: moderation-regex
-            yc_image: labubu-moderation_regex
-            cores: 1
-            memory: 2048Mb
-            core_fraction: 20
-            concurrency: 8
-            timeout: 10
-            secrets: ""
-          - name: moderation_nlp
-            container: moderation-nlp
-            yc_image: labubu-moderation-nlp
-            cores: 4
-            memory: 4096Mb
-            core_fraction: 100
-            concurrency: 8
-            timeout: 10
-            secrets: ""
-          - name: orchestrator
-            container: orchestrator
-            yc_image: labubu-orchestrator
-            cores: 2
-            memory: 2048Mb
-            core_fraction: 50
-            concurrency: 8
-            timeout: 10
-            secrets: ""
+      matrix: ${{ fromJson(needs.discover.outputs.deploy_matrix) }}
     steps:
       - name: Deploy Serverless Container
         uses: yc-actions/yc-sls-container-deploy@v4
