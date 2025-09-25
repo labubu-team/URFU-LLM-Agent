@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict
 import boto3
 from botocore.exceptions import ClientError
 
@@ -39,6 +39,7 @@ logger = logging.getLogger("yanka_api")
 # --- Попытка импортировать tiktoken для точного подсчёта токенов (опционально) ---
 try:
     import tiktoken
+
     try:
         TOKEN_ENCODER = tiktoken.get_encoding("cl100k_base")
     except Exception:
@@ -106,6 +107,7 @@ def trim_messages_to_fit(
 
     return cur
 
+
 def download_model_from_s3() -> str:
     """
     Загружает модель из S3 хранилища в локальную директорию.
@@ -113,57 +115,61 @@ def download_model_from_s3() -> str:
     """
     os.makedirs(LOCAL_MODEL_DIR, exist_ok=True)
     local_model_path = os.path.join(LOCAL_MODEL_DIR, LOCAL_MODEL_FILE)
-    
+
     # Если модель уже существует, пропускаем загрузку
     if os.path.exists(local_model_path):
         logger.info(f"Модель уже существует в {local_model_path}, пропускаем загрузку")
         return local_model_path
-    
-    logger.info(f"Загружаю модель из S3: {S3_BUCKET}/{S3_MODEL_PATH} -> {local_model_path}")
-    
+
+    logger.info(
+        f"Загружаю модель из S3: {S3_BUCKET}/{S3_MODEL_PATH} -> {local_model_path}"
+    )
+
     s3 = boto3.client(
-        's3',
+        "s3",
         endpoint_url=S3_ENDPOINT,
         aws_access_key_id=S3_ACCESS_KEY,
-        aws_secret_access_key=S3_SECRET_KEY
+        aws_secret_access_key=S3_SECRET_KEY,
     )
-    
+
     try:
         # Получаем информацию о файле для прогресс-бара
         head_response = s3.head_object(Bucket=S3_BUCKET, Key=S3_MODEL_PATH)
-        file_size = head_response['ContentLength']
+        file_size = head_response["ContentLength"]
         logger.info(f"Размер модели: {file_size / (1024**3):.2f} GB")
-        
+
         # Загрузка с прогресс-баром
         import time
+
         start_time = time.time()
         uploaded = 0
-        
+
         def progress_callback(bytes_amount):
             nonlocal uploaded
             uploaded += bytes_amount
             percentage = (uploaded / file_size) * 100
             bar_length = 50
             filled_length = int(bar_length * uploaded // file_size)
-            bar = '█' * filled_length + '░' * (bar_length - filled_length)
-            print(f'\r📤 Прогресс: |{bar}| {percentage:.1f}% ', end='', flush=True)
-        
+            bar = "█" * filled_length + "░" * (bar_length - filled_length)
+            print(f"\r📤 Прогресс: |{bar}| {percentage:.1f}% ", end="", flush=True)
+
         s3.download_file(
             Bucket=S3_BUCKET,
             Key=S3_MODEL_PATH,
             Filename=local_model_path,
-            Callback=progress_callback
+            Callback=progress_callback,
         )
-        
+
         total_time = time.time() - start_time
         print(f"\n✅ Загрузка завершена за {total_time:.2f} секунд!")
         print(f"⚡ Средняя скорость: {file_size / total_time / (1024**2):.2f} MB/s")
-        
+
         return local_model_path
-        
+
     except ClientError as e:
         logger.error(f"Ошибка при загрузке модели из S3: {e}")
         raise RuntimeError(f"Failed to download model from S3: {e}")
+
 
 # --- Загрузка модели из S3 ---
 try:
@@ -222,8 +228,9 @@ async def process_completion(request: Request):
         temperature = float(data.get("temperature", 0.6))
         top_p = float(data.get("top_p", 0.9))
 
-        ENABLE_SUMMARIZATION = False
-        trimmed_history = trim_messages_to_fit(SYSTEM_PROMPT, transformed, llm, reserved)
+        trimmed_history = trim_messages_to_fit(
+            SYSTEM_PROMPT, transformed, llm, reserved
+        )
 
         final_messages = []
         if SYSTEM_PROMPT:
