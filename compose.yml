@@ -1,0 +1,111 @@
+# ░░░░░GOOSE UP░░░░░░░░░░░░░░░░░░░GOOSE UP░░░░░░░░░░░░░░
+# ░░░THE REPOSITORY, FOLKS░░░░░░THE REPOSITORY, FOLKS░░░
+# ░░░░░█▀▀▀█░░░░░░░░░░░░░░░░░░░░░░█▀▀▀█░░░░░░░░░░░░░░░░░
+# ▄███▀░◐░░▌░░░░░░░░░░░░░░░░▄███▀░◐░░▌░░░░░░░░░░░░░░░░
+# ░░░░▌░░░░░▐░░░░░░░░░░░░░░░░░░░░▌░░░░░▐░░░░░░░░░░░░░░░░
+# ░░░░▐░░░░░▐░░░░░░░░░░░░░░░░░░░░▐░░░░░▐░░░░░░░░░░░░░░░░
+# ░░░░▌░░░░░▐▄▄░░░░░░░░░░░░░░░░░░▌░░░░░▐▄▄░░░░░░░░░░░░░░
+# ░░░░▌░░░░▄▀▒▒▀▀▀▀▄░░░░░░░░░░░░░▌░░░░▄▀▒▒▀▀▀▀▄░░░░░░░░░
+# ░░░▐░░░░▐▒▒▒▒▒▒▒▒▀▀▄░░░░░░░░░░▐░░░░▐▒▒▒▒▒▒▒▒▀▀▄░░░░░░░
+# ░░░▐░░░░▐▄▒▒▒▒▒▒▒▒▒▒▀▄░░░░░░░░▐░░░░▐▄▒▒▒▒▒▒▒▒▒▒▀▄░░░░░
+# ░░░░▀▄░░░░▀▄▒▒▒▒▒▒▒▒▒▒▀▄░░░░░░░▀▄░░░░▀▄▒▒▒▒▒▒▒▒▒▒▀▄░░░
+# ░░░░░░▀▄▄▄▄▄█▄▄▄▄▄▄▄▄▄▀▄░░░░░░░░░▀▄▄▄▄▄█▄▄▄▄▄▄▄▄▄▀▄░░░
+# ░░░░░░░░░░░▌▌░▌▌░░░░░░░░░░░░░░░░░░░░░░▌▌░▌▌░░░░░░░░░░░
+# ░░░░░░░░░░░▌▌░▌▌░░░░░░░░░░░░░░░░░░░░░░▌▌░▌▌░░░░░░░░░░░
+# ░░░░░░░░░▄▄▌▌▄▌▌░░░░░░░░░░░░░░░░░░░░▄▄▌▌▄▌▌░░░░░░░░░░░
+
+services:
+  orchestrator:
+    image: ghcr.io/labubu-team/orchestrator:latest
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - MODERATION_REGEX_URL=http://moderation-regex:8000
+      - MODERATION_NLP_URL=http://moderation-nlp:8000
+      - RAG_URL=http://rag:8000
+      - LLM_AGENT_URL=http://llm-agent:8000
+      - REQUEST_TIMEOUT=30
+      - HEALTH_CHECK_TIMEOUT=5
+      - MAX_RETRIES=3
+      - RETRY_DELAY=1.0
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+    depends_on:
+      - moderation-regex
+      - moderation-nlp
+      - rag
+      - llm-agent
+
+  moderation-regex:
+    image: ghcr.io/labubu-team/labubu-moderation_regex:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  moderation-nlp:
+    image: ghcr.io/labubu-team/labubu-moderation_nlp:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  rag:
+    image: ghcr.io/labubu-team/labubu-rag:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - S3_ENDPOINT=${S3_ENDPOINT:?S3_ENDPOINT is required}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      - S3_SECRET_KEY=${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      - S3_BUCKET=${S3_BUCKET:? S3_BUCKET is required}
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  llm-agent:
+    image: ghcr.io/labubu-team/llm_agent:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - labubu_net
+    restart: unless-stopped
+
+  telegram_bot:
+    image: ghcr.io/labubu-team/labubu-tgbot:latest
+    environment:
+      SERVICE_ACCOUNT_ID: ${SERVICE_ACCOUNT_ID:?SERVICE_ACCOUNT_ID is required}
+      PUBLIC_KEY: ${PUBLIC_KEY:?PUBLIC_KEY is required}
+      PRIVATE_KEY: ${PRIVATE_KEY:?PRIVATE_KEY is required}
+      KEY_ID: ${KEY_ID:?KEY_ID is required}
+      FOLDER_ID: ${FOLDER_ID:?FOLDER_ID is required}
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:?TELEGRAM_TOKEN is required}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:? S3_BUCKET is required}
+      # S3_PREFIX: ${S3_PREFIX:?S3_PREFIX is required}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+    networks:
+      - labubu_net
+    depends_on:
+      - orchestrator
+
+  output-safety:
+    build:
+      context: .
+      dockerfile: output-safety.Dockerfile
+    networks:
+      - labubu_net
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+networks:
+  labubu_net:
+    driver: bridge
