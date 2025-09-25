@@ -17,8 +17,8 @@
 services:
   orchestrator:
     build:
-      context: orchestrator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: orchestrator.Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -44,8 +44,8 @@ services:
 
   moderation-regex:
     build:
-      context: moderation_regex
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: moderation_regex.Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -56,8 +56,8 @@ services:
 
   moderation-nlp:
     build:
-      context: moderation_nlp
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: moderation_nlp.Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -68,8 +68,8 @@ services:
 
   rag:
     build:
-      context: rag
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rag.Dockerfile
     ports:
       - "8004:8004"
     environment:
@@ -84,8 +84,8 @@ services:
 
   llm-agent:
     build:
-      context: llm_agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: llm_agent.Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -95,8 +95,9 @@ services:
     restart: unless-stopped
 
   telegram_bot:
-    image: ghcr.io/labubu-team/labubu-tgbot:latest
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: telegram_bot.Dockerfile
     environment:
       SERVICE_ACCOUNT_ID: ${SERVICE_ACCOUNT_ID:?SERVICE_ACCOUNT_ID is required}
       PUBLIC_KEY: ${PUBLIC_KEY:?PUBLIC_KEY is required}
@@ -118,7 +119,7 @@ services:
   output-safety:
     build:
       context: .
-      dockerfile: output-safety/Dockerfile
+      dockerfile: output-safety.Dockerfile
     ports:
       - "8000:8000"
     networks:

@@ -176,8 +176,8 @@ async def completion(body: CompletionIn, request: Request):
 
     headers = {
         "Content-Type": "application/json",
-        _auth_headers(),
     }
+    """    _auth_headers(),"""
 
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:

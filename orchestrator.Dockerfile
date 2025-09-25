@@ -1,5 +1,4 @@
-# Используем официальный Python образ
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -16,13 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-RUN uv sync --group moder-nlp --no-cache --frozen
+RUN uv sync --group orchestrator --no-cache --frozen
 
-# Копируем исходный код приложения
 COPY ./orchestrator .
 
-# Указываем порт
 EXPOSE 8000
 
-# Команда запуска
 CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
