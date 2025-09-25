@@ -59,15 +59,23 @@ jobs:
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
 
-      # - name: YC Docker Auth
-      #   run: |
-      #     curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-      #     source "/home/runner/.bashrc" && \
-      #     yc config profile create test && \
-      #     yc config set folder-id ${{ secrets.YC_FOLDER }} && \
-      #     yc config set organization-id ${{ secrets.YC_ORG_ID }} && \
-      #     yc config list && \
-      #     yc container registry configure-docker
+      - name: Deploy Serverless Container
+        id: deploy-sls-container
+        uses: yc-actions/yc-sls-container-deploy@v4
+        with:
+          yc-sa-id: ${{ secrets.SA_ID }}
+          container-name: tgbot
+          folder-id: ${{ secrets.YC_FOLDER }}
+          revision-service-account-id: ${{ secrets.SA_ID }}
+          revision-cores: 1
+          revision-memory: 1024Mb
+          revision-core-fraction: 20
+          revision-concurrency: 8
+          revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-tgbot:${{ github.run_number }}
+          revision-execution-timeout: 10
+          revision-secrets: |
+            TELEGRAM_TOKEN=e6qno2jsufp1d2i8n2km/latest/tg_token
+            SERVICE_ACCOUNT_ID=e6qgn68inv1vekf3iib9/latest/SERVICE_ACCOUNT_ID
 
 
   build-and-push_rag:
@@ -112,15 +120,25 @@ jobs:
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
 
-      # - name: YC Docker Auth
-      #   run: yc container registry configure-docker
-
-      # - name: Build & push rag image YC_REPO
-      #   run: |
-      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-rag
-      #     docker build -f ./labubu-rag/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-      #     docker push $YC_REPO:latest
-      #     docker push $YC_REPO:${{ github.run_number }}
+      - name: Deploy Serverless Container
+        id: deploy-sls-container
+        uses: yc-actions/yc-sls-container-deploy@v4
+        with:
+          yc-sa-id: ${{ secrets.SA_ID }}
+          container-name: rag
+          folder-id: ${{ secrets.YC_FOLDER }}
+          revision-service-account-id: ${{ secrets.SA_ID }}
+          revision-cores: 1
+          revision-memory: 1024Mb
+          revision-core-fraction: 100
+          revision-concurrency: 8
+          revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-rag:${{ github.run_number }}
+          revision-execution-timeout: 10
+          revision-secrets: |
+            S3_ENDPOINT=e6qa6sntgejel6jqbmvb/latest/S3_ENDPOINT
+            S3_ACCESS_KEY=e6qubg2fssalpqi6f8l9/latest/S3_ACCESS_KEY
+            S3_SECRET_KEY=e6q3dqhcqot6nmid64m8/latest/S3_SECRET_KEY
+            S3_BUCKET=e6qckd0l8je2ft50nlk6/latest/S3_BUCKET
 
   build-and-push_moderation_nlp:
     runs-on: ubuntu-latest
@@ -164,15 +182,23 @@ jobs:
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
 
-      # - name: YC Docker Auth
-      #   run: yc container registry configure-docker
-
-      # - name: Build & push moderation_nlp YC_REPO
-      #   run: |
-      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_nlp
-      #     docker build -f ./labubu-moderation_nlp/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-      #     docker push $YC_REPO:latest
-      #     docker push $YC_REPO:${{ github.run_number }}
+      - name: Deploy Serverless Container
+        id: deploy-sls-container
+        uses: yc-actions/yc-sls-container-deploy@v4
+        with:
+          yc-sa-id: ${{ secrets.SA_ID }}
+          container-name: moderation-nlp
+          folder-id: ${{ secrets.YC_FOLDER }}
+          revision-service-account-id: ${{ secrets.SA_ID }}
+          revision-cores: 4
+          revision-memory: 4096Mb
+          revision-core-fraction: 100
+          revision-concurrency: 8
+          revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-moderation-nlp:${{ github.run_number }}
+          revision-execution-timeout: 10
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
 
   build-and-push_moderation_regex:
     runs-on: ubuntu-latest
@@ -216,15 +242,23 @@ jobs:
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
 
-      # - name: YC Docker Auth
-      #   run: yc container registry configure-docker
-
-      # - name: Build & push moderation_regex YC_REPO
-      #   run: |
-      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/labubu-moderation_regex
-      #     docker build -f ./labubu-moderation_regex/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-      #     docker push $YC_REPO:latest
-      #     docker push $YC_REPO:${{ github.run_number }}
+      - name: Deploy Serverless Container
+        id: deploy-sls-container
+        uses: yc-actions/yc-sls-container-deploy@v4
+        with:
+          yc-sa-id: ${{ secrets.SA_ID }}
+          container-name: moderation-regex
+          folder-id: ${{ secrets.YC_FOLDER }}
+          revision-service-account-id: ${{ secrets.SA_ID }}
+          revision-cores: 1
+          revision-memory: 2048Mb
+          revision-core-fraction: 20
+          revision-concurrency: 8
+          revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-moderation_regex:${{ github.run_number }}
+          revision-execution-timeout: 10
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID
       
 
   build-and-push_llm-agent:
@@ -269,12 +303,65 @@ jobs:
           docker push $YC_REPO:latest
           docker push $YC_REPO:${{ github.run_number }}
 
-      # - name: YC Docker Auth
-      #   run: yc container registry configure-docker
+      # автоматический деплой пока что отсутствует, по причине того что все должно работать на видеокарте в НОДЕ
 
-      # - name: Build & push LLM Agent YC_REPO
-      #   run: |
-      #     YC_REPO=cr.yandex/crpb6l14270hcph4dce5/llm_agent
-      #     docker build -f ./llm_agent/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
-      #     docker push $YC_REPO:latest
-      #     docker push $YC_REPO:${{ github.run_number }}
+  
+  build-and-push_orchestrator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase owner
+        id: repo
+        run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
+
+      - name: Build & push orchestrator GITHUB
+        run: |
+          REPO=ghcr.io/${{ steps.repo.outputs.owner_lc }}/orchestrator
+          docker build -f ./orchestrator/Dockerfile -t $REPO:latest -t $REPO:${{ github.run_number }} .
+          docker push $REPO:latest
+          docker push $REPO:${{ github.run_number }}
+
+      - name: Get Yandex Cloud IAM token
+        id: get-iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ secrets.SERVICE_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: cr.yandex
+          username: iam
+          password: ${{ steps.get-iam-token.outputs.token }}
+      
+      - name: Build, tag, and push image to Yandex Cloud Container Registry
+        run: |
+          YC_REPO=cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-orchestrator
+          docker build -f ./orchestrator/Dockerfile -t $YC_REPO:latest -t $YC_REPO:${{ github.run_number }} .
+          docker push $YC_REPO:latest
+          docker push $YC_REPO:${{ github.run_number }}
+
+      - name: Deploy Serverless Container
+        id: deploy-sls-container
+        uses: yc-actions/yc-sls-container-deploy@v4
+        with:
+          yc-sa-id: ${{ secrets.SA_ID }}
+          container-name: orchestrator
+          folder-id: ${{ secrets.YC_FOLDER }}
+          revision-service-account-id: ${{ secrets.SA_ID }}
+          revision-cores: 2
+          revision-memory: 2048Mb
+          revision-core-fraction: 50
+          revision-concurrency: 8
+          revision-image-url: cr.yandex/${{ secrets.CONTAINER_REPO }}/labubu-orchestrator:${{ github.run_number }}
+          revision-execution-timeout: 10
+          # revision-secrets: |
+          #   TELEGRAM_TOKEN=tg_api/latest/tg_token
+          #   SERVICE_ACCOUNT_ID=SERVICE_ACCOUNT_ID/latest/SERVICE_ACCOUNT_ID

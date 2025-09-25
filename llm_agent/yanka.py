@@ -45,7 +45,10 @@ try:
         TOKEN_ENCODER = tiktoken.get_encoding("cl100k_base")
 except Exception:
     TOKEN_ENCODER = None
-    logger.info("tiktoken не установлен — будет использоваться приближённый подсчёт токенов (1 токен ≈ 4 символа)")
+    logger.info(
+        "tiktoken не установлен — будет использоваться приближённый подсчёт токенов (1 токен ≈ 4 символа)"
+    )
+
 
 def count_tokens(text: str) -> int:
     if not text:
@@ -57,6 +60,7 @@ def count_tokens(text: str) -> int:
             pass
     return max(1, len(text) // 4)
 
+
 def messages_token_count(messages: List[Dict[str, str]]) -> int:
     total = 0
     for m in messages:
@@ -65,6 +69,7 @@ def messages_token_count(messages: List[Dict[str, str]]) -> int:
         total += count_tokens(f"{role}: {content}\n")
     return total
 
+
 def get_model_context_size(llm_obj: Llama, default: int = 32768) -> int:
     for attr in ("n_ctx", "n_ctx_size", "model_n_ctx", "ctx_len"):
         val = getattr(llm_obj, attr, None)
@@ -72,7 +77,13 @@ def get_model_context_size(llm_obj: Llama, default: int = 32768) -> int:
             return val
     return default
 
-def trim_messages_to_fit(system_prompt: str, history: List[Dict[str, str]], llm_obj: Llama, reserved_resp_tokens: int) -> List[Dict[str, str]]:
+
+def trim_messages_to_fit(
+    system_prompt: str,
+    history: List[Dict[str, str]],
+    llm_obj: Llama,
+    reserved_resp_tokens: int,
+) -> List[Dict[str, str]]:
     """
     Урезает старые сообщения (с начала списка history), чтобы суммарный объём system+history
     не превышал допустимый контекст модели (учитывая reserved_resp_tokens для генерации).
@@ -82,7 +93,9 @@ def trim_messages_to_fit(system_prompt: str, history: List[Dict[str, str]], llm_
 
     sys_tokens = count_tokens(system_prompt or "")
     if sys_tokens >= n_ctx_available:
-        logger.warning("System prompt занимает больше или равен доступному контексту. История будет полностью удалена.")
+        logger.warning(
+            "System prompt занимает больше или равен доступному контексту. История будет полностью удалена."
+        )
         return []
 
     cur = history.copy()
@@ -166,18 +179,22 @@ try:
     )
 
     logger.info("Прогрев модели...")
-    _ = llm.create_chat_completion(messages=[{"role": "user", "content": "Привет!"}], max_tokens=1)
+    _ = llm.create_chat_completion(
+        messages=[{"role": "user", "content": "Привет!"}], max_tokens=1
+    )
     logger.info("Модель готова.")
-except Exception as e:
+except Exception:
     logger.exception("Ошибка при загрузке модели")
     raise
 
 # --- FastAPI ---
 app = FastAPI(title="YankaGPT API", version="0.4")
 
+
 @app.get("/")
 def health_check():
     return {"status": "ok", "model": os.path.basename(model_path)}
+
 
 @app.post("/v1/completion")
 async def process_completion(request: Request):
@@ -190,7 +207,9 @@ async def process_completion(request: Request):
         messages_in = data.get("messages", [])
 
         if not messages_in or not isinstance(messages_in, list):
-            raise HTTPException(status_code=400, detail="No messages provided or incorrect format")
+            raise HTTPException(
+                status_code=400, detail="No messages provided or incorrect format"
+            )
 
         transformed: List[Dict[str, str]] = []
         for msg in messages_in:
@@ -212,8 +231,14 @@ async def process_completion(request: Request):
         final_messages.extend(trimmed_history)
 
         try:
-            approx_tokens = count_tokens(SYSTEM_PROMPT) + messages_token_count(trimmed_history)
-            logger.info("approx tokens for system+history: %d (reserved for response: %d)", approx_tokens, reserved)
+            approx_tokens = count_tokens(SYSTEM_PROMPT) + messages_token_count(
+                trimmed_history
+            )
+            logger.info(
+                "approx tokens for system+history: %d (reserved for response: %d)",
+                approx_tokens,
+                reserved,
+            )
         except Exception:
             pass
 

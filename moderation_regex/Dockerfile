@@ -15,9 +15,9 @@ RUN uv sync --no-cache --frozen
 
 COPY ./moderation_regex/ .
 
-EXPOSE 8002
+EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
-  CMD sh -c "curl -fsS http://127.0.0.1:${PORT:-8002}/healthz || exit 1"
+  CMD sh -c "curl -fsS http://127.0.0.1:${PORT:-8000}/healthz || exit 1"
 
-CMD sh -lc "uv run uvicorn moder_api:app --host 0.0.0.0 --port ${PORT:-8002} --no-server-header --timeout-keep-alive 5"
+CMD sh -lc "uv run uvicorn moder_api:app --host 0.0.0.0 --port ${PORT:-8000} --no-server-header --timeout-keep-alive 5"

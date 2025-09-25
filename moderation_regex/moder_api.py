@@ -1,10 +1,8 @@
-# moder_api.py
 import os
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
 
-# импортируем ваши функции из moder.py
 from moder import detect_injection, get_detected_pattern
 from pydantic import BaseModel
 
@@ -51,6 +49,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "moder_api:app",
         host="0.0.0.0",
-        port=int(os.getenv("PORT", "8002")),
+        port=int(os.getenv("PORT", "8000")),
         reload=bool(int(os.getenv("RELOAD", "0"))),
     )

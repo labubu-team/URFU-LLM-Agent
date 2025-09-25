@@ -1,15 +1,20 @@
 import asyncio
 import time
 import json
+import jwt
 import logging
 import os
 import socket
 import sys
+import signal
 from typing import Any, Dict, Optional
+
 from aiohttp import web
 import dotenv
 import requests
+
 from telegram import Update
+from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -17,6 +22,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from telegram.error import BadRequest, Forbidden, TimedOut, NetworkError
 
 dotenv.load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
@@ -24,6 +30,12 @@ WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/tg")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 PORT = int(os.getenv("PORT", "8080"))
 LLM_AGENT_URL = os.getenv("LLM_AGENT_URL", "").rstrip("/")
+NODE_ID=os.getenv("NODE_ID", "")
+FOLDER_ID=os.getenv("FOLDER_ID", "")
+SERVICE_ACCOUNT_ID=os.getenv("SERVICE_ACCOUNT_ID", "")
+PUBLIC_KEY=os.getenv('PUBLIC_KEY', "")
+PRIVATE_KEY=os.getenv('PRIVATE_KEY', "")
+KEY_ID=os.getenv('KEY_ID', "")
 LLM_AGENT_HOST = os.getenv("LLM_AGENT_HOST", "llm-agent")
 LLM_AGENT_PORT = int(os.getenv("LLM_AGENT_PORT", "7999"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -114,7 +126,53 @@ def _llm_url() -> str:
 
 
 class YandexGPTBot:
+    def __init__(self):
+        self.iam_token = None
+        self.token_expires = 0
+
+    def get_iam_token(self):
+        """Получение IAM-токена (с кэшированием на 1 час)"""
+        if self.iam_token and time.time() < self.token_expires:
+            return self.iam_token
+
+        try:
+            now = int(time.time())
+            payload = {
+                'aud': 'https://iam.api.cloud.yandex.net/iam/v1/tokens',
+                'iss': SERVICE_ACCOUNT_ID,
+                'iat': now,
+                'exp': now + 3600
+            }
+
+            encoded_token = jwt.encode(
+                payload,
+                PRIVATE_KEY,
+                algorithm='PS256',
+                headers={'kid': KEY_ID}
+            )
+
+            response = requests.post(
+                'https://iam.api.cloud.yandex.net/iam/v1/tokens',
+                json={'jwt': encoded_token},
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"Ошибка генерации токена: {response.text}")
+
+            token_data = response.json()
+            self.iam_token = token_data['iamToken']
+            self.token_expires = now + 3500  # На 100 секунд меньше срока действия
+
+            jinfo("IAM token generated successfully", event="get_iam_token_llm_request")
+            return self.iam_token
+
+        except Exception as e:
+            jerror(f"Error generating IAM token: {str(e)}", event="get_iam_token_llm_request")
+            raise
+
     def ask_gpt(self, q: str) -> str:
+        iam_token = self.get_iam_token()
         t0 = time.perf_counter()
         url = _llm_url()
         try:
@@ -122,9 +180,9 @@ class YandexGPTBot:
                 url,
                 headers={
                     "Content-Type": "application/json",
-                    "x-node-id": "<this>",
-                    "Authorization": "Bearer <IAM_TOKEN>",
-                    "x-folder-id": "<this>",
+                    "x-node-id": NODE_ID,
+                    "Authorization": f"Bearer {iam_token}",
+                    "x-folder-id": FOLDER_ID,
                 },
                 json={"messages": [{"role": "user", "text": q}]},
                 timeout=15,
@@ -157,6 +215,7 @@ llm = YandexGPTBot()
 
 
 async def start_cmd(u: Update, c: ContextTypes.DEFAULT_TYPE):
+    chat = u.effective_chat
     usr = u.effective_user
     jinfo(
         "Start command",
@@ -164,35 +223,91 @@ async def start_cmd(u: Update, c: ContextTypes.DEFAULT_TYPE):
         command="start",
         user_id=getattr(usr, "id", None),
         username=getattr(usr, "username", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
     )
     await u.message.reply_text("Привет! Я бот для Yandex GPT. Напиши вопрос.")
 
 
 async def msg_handler(u: Update, c: ContextTypes.DEFAULT_TYPE):
-    msg, usr = u.effective_message, u.effective_user
+    msg, usr, chat = u.effective_message, u.effective_user, u.effective_chat
     text = (msg.text or "").strip()
     jinfo(
         "Incoming message",
         event="tg_message",
-        chat_id=getattr(u.effective_chat, "id", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
         user_id=getattr(usr, "id", None),
         username=getattr(usr, "username", None),
         message_id=getattr(msg, "message_id", None),
         text_len=len(text),
     )
     if not text:
-        await msg.reply_text("Пожалуйста, введите вопрос.")
+        # просто молча игнорируем пустые
         return
+
+    # В каналах часто 400: нет прав/нет смысла слать action. Скипаем.
+    if chat and getattr(chat, "type", None) == "channel":
+        jinfo(
+            "Skip: channel message (no rights to reply)",
+            event="skip_channel",
+            chat_id=chat.id,
+        )
+        return
+
+    # Best-effort send_chat_action: не валимся на 400
     try:
-        await c.bot.send_chat_action(chat_id=u.effective_chat.id, action="typing")
-        await msg.reply_text(llm.ask_gpt(text))
+        await c.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
+    except BadRequest as e:
+        jinfo(
+            "send_chat_action ignored",
+            event="tg_action_ignored",
+            reason=str(e),
+            chat_id=chat.id,
+        )
+    except Forbidden as e:
+        jinfo(
+            "send_chat_action forbidden",
+            event="tg_action_forbidden",
+            reason=str(e),
+            chat_id=chat.id,
+        )
+        return
+
+    try:
+        answer = llm.ask_gpt(text)
+        await msg.reply_text(answer, disable_web_page_preview=True)
+    except (Forbidden, BadRequest) as e:
+        # НИЧЕГО не отправляем повторно — только логируем
+        jerror(
+            "Reply failed",
+            event="tg_reply_error",
+            chat_id=getattr(chat, "id", None),
+            chat_type=getattr(chat, "type", None),
+            error=str(e),
+        )
+    except (TimedOut, NetworkError) as e:
+        jerror("Reply network error", event="tg_reply_neterr", error=str(e))
     except Exception as e:
-        await msg.reply_text("Извините, произошла ошибка. Попробуйте позже.")
-        jerror("Reply failed", event="tg_reply_error", error=str(e))
+        jerror("Reply unexpected error", event="tg_reply_unexpected", error=str(e))
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    jerror("Unhandled error", event="unhandled_error", error=str(context.error))
+    chat_id = None
+    chat_type = None
+    try:
+        if isinstance(update, Update) and update.effective_chat:
+            chat_id = update.effective_chat.id
+            chat_type = update.effective_chat.type
+    except Exception:
+        pass
+    jerror(
+        "Unhandled error",
+        event="unhandled_error",
+        error=str(getattr(context, "error", None)),
+        chat_id=chat_id,
+        chat_type=chat_type,
+    )
 
 
 app = web.Application()
@@ -244,11 +359,13 @@ app.router.add_post(WEBHOOK_PATH, tg_webhook)
 async def amain():
     if not TELEGRAM_TOKEN:
         raise RuntimeError("TELEGRAM_TOKEN must be set")
+
     global ptb
     ptb = Application.builder().token(TELEGRAM_TOKEN).build()
     ptb.add_handler(CommandHandler("start", start_cmd))
     ptb.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, msg_handler))
     ptb.add_error_handler(error_handler)
+
     await ptb.initialize()
     await ptb.start()
 
@@ -257,7 +374,22 @@ async def amain():
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
     jinfo("Started", event="startup", port=PORT, webhook_path=WEBHOOK_PATH)
-    await asyncio.Event().wait()
+
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except NotImplementedError:
+            pass
+
+    try:
+        await stop_event.wait()
+    finally:
+        jinfo("Shutting down...", event="shutdown")
+        await ptb.stop()
+        await ptb.shutdown()
+        await runner.cleanup()
 
 
 if __name__ == "__main__":

@@ -87,4 +87,4 @@ def classify(payload: TextIn):
 
 
 if __name__ == "__main__":
-    uvicorn.run("moder_nlp_api:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("moder_nlp_api:app", host="0.0.0.0", port=8000, reload=True)
