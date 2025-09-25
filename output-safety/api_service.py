@@ -323,5 +323,5 @@ async def log_requests(request, call_next):
 if __name__ == "__main__":
     logger.info("🚀 Запуск Fast Output Safety API...")
     uvicorn.run(
-        "api_service:app", host="0.0.0.0", port=8003, log_level="info", reload=False
+        "api_service:app", host="0.0.0.0", port=8000, log_level="info", reload=False
     )
