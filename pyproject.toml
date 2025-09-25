@@ -29,6 +29,8 @@ llm = [
     "torch>=2.8.0",
     "sentencepiece>=0.2.1",
     "protobuf>=6.32.1",
+    "llama-cpp-python>=0.3.16",
+    "tiktoken>=0.11.0",
 ]
 rag = [
     "pydantic>=2.9.0",

@@ -24,10 +24,10 @@ services:
     environment:
       - PORT=8000
       - HOST=0.0.0.0
-      - MODERATION_REGEX_URL=http://moderation-regex:8001
-      - MODERATION_NLP_URL=http://moderation-nlp:8002
-      - RAG_URL=http://rag:8004
-      - LLM_AGENT_URL=http://llm-agent:8005
+      - MODERATION_REGEX_URL=http://moderation-regex:8000
+      - MODERATION_NLP_URL=http://moderation-nlp:8000
+      - RAG_URL=http://rag:8000
+      - LLM_AGENT_URL=http://llm-agent:8000
       - REQUEST_TIMEOUT=30
       - HEALTH_CHECK_TIMEOUT=5
       - MAX_RETRIES=3
@@ -47,7 +47,7 @@ services:
       context: moderation_regex
       dockerfile: Dockerfile
     ports:
-      - "8001:8001"
+      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -59,7 +59,7 @@ services:
       context: moderation_nlp
       dockerfile: Dockerfile
     ports:
-      - "8002:8002"
+      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -87,7 +87,7 @@ services:
       context: llm_agent
       dockerfile: Dockerfile
     ports:
-      - "8005:8005"
+      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
     networks:
@@ -120,7 +120,7 @@ services:
       context: .
       dockerfile: output-safety/Dockerfile
     ports:
-      - "8003:8003"
+      - "8000:8000"
     networks:
       - labubu_net
     environment:
