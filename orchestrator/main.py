@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -17,6 +18,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def _setup_logging():
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+    h = logging.StreamHandler(stream=sys.stdout)
+    h.setFormatter(YCJsonFormatter())
+    root.addHandler(h)
+
+
+_setup_logging()
+log = logging.getLogger("app")
+
+
+def jinfo(m, **f):
+    return log.info(m, extra=f)
+
+
+def jerror(m, **f):
+    return log.error(m, extra=f)
 
 # Модели данных
 class ProcessingStatus(str, Enum):
@@ -54,6 +74,13 @@ class OrchestratorConfig:
     """Конфигурация оркестратора"""
 
     def __init__(self):
+        
+        self.NODE_ID=os.getenv("NODE_ID", "")
+        self.FOLDER_ID=os.getenv("FOLDER_ID", "")
+        self.SERVICE_ACCOUNT_ID=os.getenv("SERVICE_ACCOUNT_ID", "")
+        self.PUBLIC_KEY=os.getenv('PUBLIC_KEY', "")
+        self.PRIVATE_KEY=os.getenv('PRIVATE_KEY', "")
+        self.KEY_ID=os.getenv('KEY_ID', "")
         # Базовые URL сервисов
         self.moderation_regex_url = os.getenv(
             "MODERATION_REGEX_URL", "http://moderation-regex:8000"
@@ -87,6 +114,93 @@ class RequestProcessor:
     def __init__(self, config: OrchestratorConfig):
         self.config = config
         self.session: Optional[aiohttp.ClientSession] = None
+        self.iam_token = None
+        self.token_expires = 0
+    
+    def _llm_url(self) -> str:
+        return (
+            f"{self.llm_agent_url}/v1/completion"
+        )
+
+    def get_iam_token(self):
+        """Получение IAM-токена (с кэшированием на 1 час)"""
+        if self.iam_token and time.time() < self.token_expires:
+            return self.iam_token
+
+        try:
+            now = int(time.time())
+            payload = {
+                'aud': 'https://iam.api.cloud.yandex.net/iam/v1/tokens',
+                'iss': SERVICE_ACCOUNT_ID,
+                'iat': now,
+                'exp': now + 3600
+            }
+
+            encoded_token = jwt.encode(
+                payload,
+                PRIVATE_KEY,
+                algorithm='PS256',
+                headers={'kid': KEY_ID}
+            )
+
+            response = requests.post(
+                'https://iam.api.cloud.yandex.net/iam/v1/tokens',
+                json={'jwt': encoded_token},
+                timeout=10
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"Ошибка генерации токена: {response.text}")
+
+            token_data = response.json()
+            self.iam_token = token_data['iamToken']
+            self.token_expires = now + 3500  # На 100 секунд меньше срока действия
+
+            jinfo("IAM token generated successfully", event="get_iam_token_llm_request")
+            return self.iam_token
+
+        except Exception as e:
+            jerror(f"Error generating IAM token: {str(e)}", event="get_iam_token_llm_request")
+            raise
+
+    def ask_gpt(self, q: str) -> str:
+        iam_token = self.get_iam_token()
+        t0 = time.perf_counter()
+        url = _llm_url()
+        try:
+            r = requests.post(
+                url,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-node-id": self.NODE_ID,
+                    "Authorization": f"Bearer {iam_token}",
+                    "x-folder-id": self.FOLDER_ID,
+                },
+                json={"messages": [{"role": "user", "text": q}]},
+                timeout=15,
+            )
+            dt = round((time.perf_counter() - t0) * 1000, 1)
+            jinfo(
+                "LLM request done",
+                event="llm_request",
+                url=url,
+                status=r.status_code,
+                duration_ms=dt,
+                bytes=len(r.content),
+            )
+            r.raise_for_status()
+            j = r.json()
+            return j["result"]["alternatives"][0]["message"]["text"]
+        except Exception as e:
+            dt = round((time.perf_counter() - t0) * 1000, 1)
+            jerror(
+                "LLM request failed",
+                event="llm_error",
+                url=url,
+                duration_ms=dt,
+                error=str(e),
+            )
+            raise
 
     async def init_session(self):
         """Инициализация HTTP сессии"""
